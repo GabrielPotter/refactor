@@ -1,0 +1,11 @@
+edge - nodegroup
+  node csoport összekapcsolása node group-al
+business
+  üzleti objektumok definiálása
+  property rendszer
+edge - graph
+  tetszőleges node összekötettés, ha bármelyik child össze van kötve
+
+1000000
+    ennyi objrktum közötti teszt
+    

@@ -19,7 +19,8 @@ export const DevSchema = {
   async dropAll(db: Kysely<DB>) {
     // Drop tables in order because of triggers and foreign keys
     await sql`DROP TABLE IF EXISTS edge CASCADE;`.execute(db);
-    await sql`DROP TABLE IF EXISTS tree_node CASCADE;`.execute(db);
+    await sql`DROP TABLE IF EXISTS node CASCADE;`.execute(db);
+    await sql`DROP TABLE IF EXISTS node_categories CASCADE;`.execute(db);
     await sql`DROP TABLE IF EXISTS tree CASCADE;`.execute(db);
     await sql`DROP TABLE IF EXISTS layer CASCADE;`.execute(db);
     // Drop any additional helper functions here if you added them.
@@ -63,62 +64,113 @@ export const DevSchema = {
     `.execute(db);
 
     await sql`
+      CREATE INDEX idx_tree_name
+      ON tree (name);
+    `.execute(db);
+
+    await sql`
       CREATE TRIGGER trg_tree_set_updated_at
       BEFORE UPDATE ON tree
       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
     `.execute(db);
 
-    // --- tree_node ---
+    // --- node_categories ---
     await sql`
-      CREATE TABLE tree_node (
+      CREATE TABLE node_categories (
         id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        tree_id    uuid NOT NULL REFERENCES tree(id) ON DELETE CASCADE,
-        parent_id  uuid NULL,
+        parent_id  uuid NULL REFERENCES node_categories(id) ON DELETE CASCADE,
         name       text NOT NULL,
-        position   integer NOT NULL DEFAULT 0,
         props      jsonb NOT NULL DEFAULT '{}'::jsonb,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       );
     `.execute(db);
 
+    await sql`
+      CREATE INDEX idx_node_categories_name
+      ON node_categories (name);
+    `.execute(db);
+
+    await sql`
+      CREATE INDEX idx_node_categories_parent ON node_categories(parent_id);
+    `.execute(db);
+
+    await sql`
+      CREATE TRIGGER trg_node_categories_set_updated_at
+      BEFORE UPDATE ON node_categories
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    `.execute(db);
+
+    // --- node ---
+    await sql`
+      CREATE TABLE node (
+        id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tree_id     uuid NOT NULL REFERENCES tree(id) ON DELETE CASCADE,
+        parent_id   uuid NULL,
+        category_id uuid NULL REFERENCES node_categories(id) ON DELETE SET NULL,
+        name        text NOT NULL,
+        position    integer NOT NULL DEFAULT 0,
+        euler_left  integer NOT NULL DEFAULT 0,
+        euler_right integer NOT NULL DEFAULT 0,
+        euler_depth integer NOT NULL DEFAULT 0,
+        props       jsonb NOT NULL DEFAULT '{}'::jsonb,
+        created_at  timestamptz NOT NULL DEFAULT now(),
+        updated_at  timestamptz NOT NULL DEFAULT now()
+      );
+    `.execute(db);
+
+    await sql`
+      CREATE INDEX idx_node_name
+      ON node (name);
+    `.execute(db);
+
     // Unique key (id, tree_id) for the composite self-FK
     await sql`
-      CREATE UNIQUE INDEX ux_tree_node_id_tree ON tree_node (id, tree_id);
+      CREATE UNIQUE INDEX ux_node_id_tree ON node (id, tree_id);
     `.execute(db);
 
     // Parent within the same tree: (parent_id, tree_id) -> (id, tree_id)
     await sql`
-      ALTER TABLE tree_node
-      ADD CONSTRAINT fk_tree_node_parent_same_tree
+      ALTER TABLE node
+      ADD CONSTRAINT fk_node_parent_same_tree
       FOREIGN KEY (parent_id, tree_id)
-      REFERENCES tree_node (id, tree_id)
+      REFERENCES node (id, tree_id)
       ON DELETE CASCADE
       DEFERRABLE INITIALLY IMMEDIATE;
     `.execute(db);
 
     // Faster navigation
     await sql`
-      CREATE INDEX idx_tree_node_tree_parent_pos
-      ON tree_node (tree_id, parent_id, position);
+      CREATE INDEX idx_node_tree_parent_pos
+      ON node (tree_id, parent_id, position);
     `.execute(db);
 
     await sql`
-      CREATE INDEX idx_tree_node_tree_id
-      ON tree_node (tree_id);
+      CREATE INDEX idx_node_tree_id
+      ON node (tree_id);
+    `.execute(db);
+
+    await sql`
+      CREATE INDEX idx_node_tree_euler_bounds
+      ON node (tree_id, euler_left, euler_right);
+    `.execute(db);
+
+    await sql`
+      CREATE INDEX idx_node_tree_euler_depth
+      ON node (tree_id, euler_depth);
     `.execute(db);
 
     // JSONB GIN index for faster filtering
     await sql`
-      CREATE INDEX idx_tree_node_props_gin
-      ON tree_node
+      CREATE INDEX idx_node_props_gin
+      ON node
       USING GIN (props);
     `.execute(db);
 
     // updated_at trigger
     await sql`
-      CREATE TRIGGER trg_tree_node_set_updated_at
-      BEFORE UPDATE ON tree_node
+      CREATE TRIGGER trg_node_set_updated_at
+      BEFORE UPDATE ON node
       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
     `.execute(db);
 
@@ -128,8 +180,8 @@ export const DevSchema = {
         id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         layer_id   uuid NOT NULL REFERENCES layer(id) ON DELETE CASCADE,
         name       text NOT NULL,
-        "from"     uuid NOT NULL REFERENCES tree_node(id) ON DELETE CASCADE,
-        "to"       uuid NOT NULL REFERENCES tree_node(id) ON DELETE CASCADE,
+        "from"     uuid NOT NULL REFERENCES node(id) ON DELETE CASCADE,
+        "to"       uuid NOT NULL REFERENCES node(id) ON DELETE CASCADE,
         props      jsonb NOT NULL DEFAULT '{}'::jsonb,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()

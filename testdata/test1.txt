@@ -1,0 +1,14 @@
+create tree "SampleTree" props '{"depth": 3, "label": "root"}';
+create category "Child" parent "Root";
+create category "Leaf" parent "Child" props '{"note": "example"}';
+create layer "Rendering" props '{"enabled": true}';
+create layer "Physics";
+create node "RootNode" parent "None" category "RootCategory" props '{"id": 1}';
+create node "ChildNode" parent "RootNode" category "LeafCategory";
+connect "Link" "RootNode" "ChildNode" layer "Physics" props '{"weight": 0.5}';
+connect "Visual" "ChildNode" "RootNode" layer "Rendering";
+disconnect "Link";
+repeat 2 create tree "BatchTree$0" props '{"depth": $0}';
+repeat 3 ["ChildNode", "RootNode"] 
+    connect "v$0" "$1" "$2-$0" layer "Rendering" props '{"index": $0}';
+repeat 2 ["T","depth"] create tree "$1-$0" props '{"$2":$0}';

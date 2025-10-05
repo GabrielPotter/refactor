@@ -1,0 +1,73 @@
+Script execution started. 2025-10-08T17:06:21.838Z
+Executing createTree "SampleTree"
+createTree invoked: SampleTree
+{
+  "depth": 3,
+  "label": "root"
+}
+Executing createCategory "Child" parent "Root"
+createCategory invoked: Child (parent: Root)
+{}
+Executing createCategory "Leaf" parent "Child"
+createCategory invoked: Leaf (parent: Child)
+{
+  "note": "example"
+}
+Executing createLayer "Rendering"
+createLayer invoked: Rendering
+{
+  "enabled": true
+}
+Executing createLayer "Physics"
+createLayer invoked: Physics
+{}
+Executing createNode "RootNode" parent "None" category "RootCategory"
+createNode invoked: RootNode (parent: None, category: RootCategory)
+{
+  "id": 1
+}
+Executing createNode "ChildNode" parent "RootNode" category "LeafCategory"
+createNode invoked: ChildNode (parent: RootNode, category: LeafCategory)
+{}
+Executing connect "Link" RootNode -> ChildNode layer "Physics"
+createConnection invoked: Link (RootNode -> ChildNode, layer: Physics)
+{
+  "weight": 0.5
+}
+Executing connect "Visual" ChildNode -> RootNode layer "Rendering"
+createConnection invoked: Visual (ChildNode -> RootNode, layer: Rendering)
+{}
+Executing disconnect "Link"
+deleteConnection invoked: Link
+Executing repeat 2 times
+createTree invoked: BatchTree0
+{
+  "depth": 0
+}
+createTree invoked: BatchTree1
+{
+  "depth": 1
+}
+Executing repeat 3 times
+createConnection invoked: v0 (ChildNode -> RootNode-0, layer: Rendering)
+{
+  "index": 0
+}
+createConnection invoked: v1 (ChildNode -> RootNode-1, layer: Rendering)
+{
+  "index": 1
+}
+createConnection invoked: v2 (ChildNode -> RootNode-2, layer: Rendering)
+{
+  "index": 2
+}
+Executing repeat 2 times
+createTree invoked: T-0
+{
+  "depth": 0
+}
+createTree invoked: T-1
+{
+  "depth": 1
+}
+Script execution completed.

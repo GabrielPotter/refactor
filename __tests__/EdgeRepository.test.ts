@@ -11,8 +11,8 @@ import type {
   Driver,
   QueryResult,
 } from "kysely";
-import { LayerRepository } from "../repositories/LayerRepository";
-import type { DB, Layer } from "../db/types";
+import { EdgeRepository } from "../src/repositories/EdgeRepository";
+import type { DB, Edge } from "../src/db/types";
 
 class MockConnection implements DatabaseConnection {
   constructor(
@@ -65,74 +65,99 @@ const createTestRepo = (responses: QueryResult<any>[]) => {
   };
 
   const db = new Kysely<DB>({ dialect });
-  const repo = new LayerRepository(db);
+  const repo = new EdgeRepository(db);
 
   return { repo, db, queries };
 };
 
-const createLayerRow = (overrides: Partial<Layer> = {}): Layer => {
+const createEdgeRow = (overrides: Partial<Edge> = {}): Edge => {
   const now = new Date();
   return {
-    id: overrides.id ?? "layer-1",
-    name: overrides.name ?? "Layer",
+    id: overrides.id ?? "edge-1",
+    layer_id: overrides.layer_id ?? "layer-1",
+    name: overrides.name ?? "Edge",
+    from: overrides.from ?? "node-1",
+    to: overrides.to ?? "node-2",
+    props: overrides.props ?? {},
     created_at: overrides.created_at ?? now,
     updated_at: overrides.updated_at ?? now,
   };
 };
 
-describe("LayerRepository", () => {
-  it("lists layers ordered by creation time", async () => {
-    const layerRow = createLayerRow();
-    const { repo, db, queries } = createTestRepo([{ rows: [layerRow] }]);
+describe("EdgeRepository", () => {
+  it("lists edges ordered by creation time", async () => {
+    const edgeRow = createEdgeRow();
+    const { repo, db, queries } = createTestRepo([{ rows: [edgeRow] }]);
 
     try {
-      const result = await repo.listLayers();
-      expect(result).toEqual([layerRow]);
+      const result = await repo.listEdges();
+      expect(result).toEqual([edgeRow]);
       expect(queries).toHaveLength(1);
       const sql = queries[0].sql.toLowerCase();
       expect(sql).toContain("select");
-      expect(sql).toContain('from "layer"');
+      expect(sql).toContain('from "edge"');
       expect(sql).toContain('order by "created_at" asc');
     } finally {
       await db.destroy();
     }
   });
 
-  it("creates a layer", async () => {
-    const layerRow = createLayerRow();
-    const { repo, db, queries } = createTestRepo([{ rows: [layerRow] }]);
+  it("lists edges by layer", async () => {
+    const edgeRow = createEdgeRow();
+    const { repo, db, queries } = createTestRepo([{ rows: [edgeRow] }]);
 
     try {
-      const result = await repo.createLayer(layerRow.name);
-      expect(result).toEqual(layerRow);
+      const result = await repo.listEdgesByLayer(edgeRow.layer_id);
+      expect(result).toEqual([edgeRow]);
       expect(queries).toHaveLength(1);
-      expect(queries[0].sql.toLowerCase()).toContain('insert into "layer"');
+      const sql = queries[0].sql.toLowerCase();
+      expect(sql).toContain('where "layer_id" =');
     } finally {
       await db.destroy();
     }
   });
 
-  it("renames a layer", async () => {
-    const layerRow = createLayerRow({ name: "Updated" });
-    const { repo, db, queries } = createTestRepo([{ rows: [layerRow] }]);
+  it("creates an edge", async () => {
+    const edgeRow = createEdgeRow();
+    const { repo, db, queries } = createTestRepo([{ rows: [edgeRow] }]);
 
     try {
-      const result = await repo.renameLayer(layerRow.id, layerRow.name);
-      expect(result).toEqual(layerRow);
+      const result = await repo.createEdge({
+        layerId: edgeRow.layer_id,
+        name: edgeRow.name,
+        from: edgeRow.from,
+        to: edgeRow.to,
+        props: edgeRow.props,
+      });
+      expect(result).toEqual(edgeRow);
       expect(queries).toHaveLength(1);
-      expect(queries[0].sql.toLowerCase()).toContain('update "layer"');
+      expect(queries[0].sql.toLowerCase()).toContain('insert into "edge"');
     } finally {
       await db.destroy();
     }
   });
 
-  it("retrieves a layer by id", async () => {
-    const layerRow = createLayerRow();
-    const { repo, db, queries } = createTestRepo([{ rows: [layerRow] }]);
+  it("updates an edge", async () => {
+    const edgeRow = createEdgeRow({ name: "Updated" });
+    const { repo, db, queries } = createTestRepo([{ rows: [edgeRow] }]);
 
     try {
-      const result = await repo.getLayer(layerRow.id);
-      expect(result).toEqual(layerRow);
+      const result = await repo.updateEdge(edgeRow.id, { name: edgeRow.name });
+      expect(result).toEqual(edgeRow);
+      expect(queries).toHaveLength(1);
+      expect(queries[0].sql.toLowerCase()).toContain('update "edge"');
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it("retrieves an edge by id", async () => {
+    const edgeRow = createEdgeRow();
+    const { repo, db, queries } = createTestRepo([{ rows: [edgeRow] }]);
+
+    try {
+      const result = await repo.getEdge(edgeRow.id);
+      expect(result).toEqual(edgeRow);
       expect(queries).toHaveLength(1);
       expect(queries[0].sql.toLowerCase()).toContain('where "id" =');
     } finally {
@@ -140,13 +165,13 @@ describe("LayerRepository", () => {
     }
   });
 
-  it("deletes a layer", async () => {
+  it("deletes an edge", async () => {
     const { repo, db, queries } = createTestRepo([{ rows: [] }]);
 
     try {
-      await repo.deleteLayer("layer-1");
+      await repo.deleteEdge("edge-1");
       expect(queries).toHaveLength(1);
-      expect(queries[0].sql.toLowerCase()).toContain('delete from "layer"');
+      expect(queries[0].sql.toLowerCase()).toContain('delete from "edge"');
     } finally {
       await db.destroy();
     }

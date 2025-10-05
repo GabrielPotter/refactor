@@ -2,11 +2,14 @@ import { EventEmitter } from 'events';
 import { createRequest, createResponse } from 'node-mocks-http';
 import type { Pool } from 'pg';
 import type { Kysely } from 'kysely';
-import { createApp } from '../index';
-import type { DB, Tree, TreeNode, Layer, Edge } from '../db/types';
-import type { TreeRepository } from '../repositories/TreeRepository';
-import type { LayerRepository } from '../repositories/LayerRepository';
-import type { EdgeRepository } from '../repositories/EdgeRepository';
+import { createApp } from '../src/index';
+import type { DB, Tree, TreeNode, Layer, Edge, NodeCategory } from '../src/db/types';
+import type { TreeRepository } from '../src/repositories/TreeRepository';
+import type { NodeRepository } from '../src/repositories/NodeRepository';
+import type { CategoryRepository } from '../src/repositories/CategoryRepository';
+import type { LayerRepository } from '../src/repositories/LayerRepository';
+import type { EdgeRepository } from '../src/repositories/EdgeRepository';
+import { LatencyStats } from '../src/metrics/latencyStats';
 
 type QueryRow = { name: string; version: string };
 
@@ -61,13 +64,21 @@ const createDevDbFactory = () => {
 
 const createMockTreeRepo = () => {
   const repo: jest.Mocked<
+    Pick<TreeRepository, 'createTree' | 'listTrees' | 'renameTree' | 'deleteTree'>
+  > = {
+    createTree: jest.fn(),
+    listTrees: jest.fn(),
+    renameTree: jest.fn(),
+    deleteTree: jest.fn(),
+  };
+  return repo;
+};
+
+const createMockNodeRepo = () => {
+  const repo: jest.Mocked<
     Pick<
-      TreeRepository,
-      | 'createTree'
-      | 'listTrees'
+      NodeRepository,
       | 'listAllNodes'
-      | 'renameTree'
-      | 'deleteTree'
       | 'createNode'
       | 'getNode'
       | 'listChildren'
@@ -80,11 +91,7 @@ const createMockTreeRepo = () => {
       | 'incrementCounter'
     >
   > = {
-    createTree: jest.fn(),
-    listTrees: jest.fn(),
     listAllNodes: jest.fn(),
-    renameTree: jest.fn(),
-    deleteTree: jest.fn(),
     createNode: jest.fn(),
     getNode: jest.fn(),
     listChildren: jest.fn(),
@@ -94,7 +101,24 @@ const createMockTreeRepo = () => {
     moveSubtree: jest.fn(),
     deleteSubtree: jest.fn(),
     listByType: jest.fn(),
-    incrementCounter: jest.fn()
+    incrementCounter: jest.fn(),
+  };
+  return repo;
+};
+
+const createMockCategoryRepo = () => {
+  const repo: jest.Mocked<
+    Pick<
+      CategoryRepository,
+      'listCategories' | 'createCategory' | 'getCategoryById' | 'getCategoryByName' | 'updateCategory' | 'deleteCategory'
+    >
+  > = {
+    listCategories: jest.fn(),
+    createCategory: jest.fn(),
+    getCategoryById: jest.fn(),
+    getCategoryByName: jest.fn(),
+    updateCategory: jest.fn(),
+    deleteCategory: jest.fn(),
   };
   return repo;
 };
@@ -169,11 +193,27 @@ const createNodeRow = (overrides: Partial<TreeNode> = {}): TreeNode => {
     id: overrides.id ?? 'node-1',
     tree_id: overrides.tree_id ?? 'tree-1',
     parent_id: overrides.parent_id ?? null,
+    category_id: overrides.category_id ?? null,
     name: overrides.name ?? 'Node',
     position: overrides.position ?? 0,
+    euler_left: overrides.euler_left ?? 1,
+    euler_right: overrides.euler_right ?? 2,
+    euler_depth: overrides.euler_depth ?? 0,
     props: overrides.props ?? {},
     created_at: overrides.created_at ?? now,
     updated_at: overrides.updated_at ?? now
+  };
+};
+
+const createCategoryRow = (overrides: Partial<NodeCategory> = {}): NodeCategory => {
+  const now = new Date();
+  return {
+    id: overrides.id ?? 'cat-1',
+    parent_id: overrides.parent_id ?? null,
+    name: overrides.name ?? 'Category',
+    props: overrides.props ?? {},
+    created_at: overrides.created_at ?? now,
+    updated_at: overrides.updated_at ?? now,
   };
 };
 
@@ -195,6 +235,12 @@ const serializeEdge = (edge: Edge) => ({
   updated_at: edge.updated_at.toISOString()
 });
 
+const serializeCategory = (category: NodeCategory) => ({
+  ...category,
+  created_at: category.created_at.toISOString(),
+  updated_at: category.updated_at.toISOString()
+});
+
 const serializeNode = (node: TreeNode) => ({
   ...node,
   created_at: node.created_at.toISOString(),
@@ -209,6 +255,8 @@ describe('REST server endpoints', () => {
       pool,
       layerRepository: createMockLayerRepo(),
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
@@ -228,6 +276,8 @@ describe('REST server endpoints', () => {
       pool,
       layerRepository: createMockLayerRepo(),
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
@@ -243,6 +293,8 @@ describe('REST server endpoints', () => {
       pool,
       layerRepository: createMockLayerRepo(),
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
@@ -258,6 +310,8 @@ describe('REST server endpoints', () => {
       pool,
       layerRepository: createMockLayerRepo(),
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
@@ -273,6 +327,8 @@ describe('REST server endpoints', () => {
       pool,
       layerRepository: createMockLayerRepo(),
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
@@ -287,7 +343,13 @@ describe('REST server endpoints', () => {
         '/api1': expect.any(Object),
         '/api2': expect.any(Object),
         '/api1/tree': expect.any(Object),
-        '/api1/tree/{treeId}/nodes-all': expect.any(Object),
+        '/api1/node/{treeId}': expect.any(Object),
+        '/api1/node/{treeId}/all': expect.any(Object),
+        '/api1/node/{treeId}/item/{nodeId}': expect.any(Object),
+        '/api1/metrics': expect.any(Object),
+        '/api1/metrics/reset': expect.any(Object),
+        '/api1/node-categories': expect.any(Object),
+        '/api1/node-categories/{categoryId}': expect.any(Object),
         '/api1/layer': expect.any(Object),
         '/api1/layer/{layerId}': expect.any(Object),
         '/api1/edge': expect.any(Object),
@@ -308,6 +370,8 @@ describe('Dev schema endpoints', () => {
       pool,
       devSchemaEnabled: false,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo(),
     });
@@ -340,6 +404,8 @@ describe('Dev schema endpoints', () => {
       devSchema: schema,
       createDevDb: factory,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo(),
     });
@@ -372,6 +438,8 @@ describe('Tree repository endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: repo,
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
@@ -385,21 +453,24 @@ describe('Tree repository endpoints', () => {
 
   it('lists all nodes in a tree', async () => {
     const { pool } = createMockPool([]);
-    const repo = createMockTreeRepo();
+    const treeRepo = createMockTreeRepo();
+    const nodeRepo = createMockNodeRepo();
     const node = createNodeRow();
-    repo.listAllNodes.mockResolvedValue([node]);
+    nodeRepo.listAllNodes.mockResolvedValue([node]);
     const app = createApp({
       pool,
-      treeRepository: repo,
+      treeRepository: treeRepo,
+      nodeRepository: nodeRepo,
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
-    const response = await performRequest(app, '/api1/tree/tree-1/nodes-all');
+    const response = await performRequest(app, '/api1/node/tree-1/all');
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual([serializeNode(node)]);
-    expect(repo.listAllNodes).toHaveBeenCalledWith('tree-1');
+    expect(nodeRepo.listAllNodes).toHaveBeenCalledWith('tree-1');
   });
 
   it('creates a tree', async () => {
@@ -410,6 +481,8 @@ describe('Tree repository endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: repo,
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
@@ -431,6 +504,8 @@ describe('Tree repository endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: repo,
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
@@ -453,6 +528,8 @@ describe('Tree repository endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: repo,
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
@@ -478,165 +555,470 @@ describe('Tree repository endpoints', () => {
 
   it('handles node CRUD operations', async () => {
     const { pool } = createMockPool([]);
-    const repo = createMockTreeRepo();
+    const treeRepo = createMockTreeRepo();
+    const nodeRepo = createMockNodeRepo();
     const node = createNodeRow();
-    repo.createNode.mockResolvedValue(node);
-    repo.getNode.mockResolvedValue(node);
-    repo.updateNode.mockResolvedValue({ ...node, name: 'Updated' });
-    repo.listChildren.mockResolvedValue([node]);
-    repo.deleteSubtree.mockResolvedValue();
+    nodeRepo.createNode.mockResolvedValue(node);
+    nodeRepo.getNode.mockResolvedValue(node);
+    nodeRepo.updateNode.mockResolvedValue({ ...node, name: 'Updated' });
+    nodeRepo.listChildren.mockResolvedValue([node]);
+    nodeRepo.deleteSubtree.mockResolvedValue();
     const app = createApp({
       pool,
-      treeRepository: repo,
+      treeRepository: treeRepo,
+      nodeRepository: nodeRepo,
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
     const createResponse = await performRequest(app, {
-      url: '/api1/tree/tree-1/nodes',
+      url: '/api1/node/tree-1',
       method: 'POST',
       body: { name: 'Node', parentId: null }
     });
 
     expect(createResponse.status).toBe(201);
     expect(createResponse.body).toEqual(serializeNode(node));
-    expect(repo.createNode).toHaveBeenCalledWith({
+    expect(nodeRepo.createNode).toHaveBeenCalledWith({
       treeId: 'tree-1',
       name: 'Node',
       parentId: null,
       position: undefined,
-      props: undefined
+      props: undefined,
+      categoryId: undefined
     });
 
-    const getResponse = await performRequest(app, '/api1/tree/tree-1/nodes/node-1');
+    const getResponse = await performRequest(app, '/api1/node/tree-1/item/node-1');
     expect(getResponse.status).toBe(200);
-    expect(repo.getNode).toHaveBeenCalledWith('tree-1', 'node-1');
+    expect(nodeRepo.getNode).toHaveBeenCalledWith('tree-1', 'node-1');
 
     const listResponse = await performRequest(app, {
-      url: '/api1/tree/tree-1/nodes'
+      url: '/api1/node/tree-1'
     });
     expect(listResponse.status).toBe(200);
-    expect(repo.listChildren).toHaveBeenCalledWith('tree-1', null);
+    expect(nodeRepo.listChildren).toHaveBeenCalledWith('tree-1', null);
 
     const updateResponse = await performRequest(app, {
-      url: '/api1/tree/tree-1/nodes/node-1',
+      url: '/api1/node/tree-1/item/node-1',
       method: 'PATCH',
       body: { name: 'Updated' }
     });
     expect(updateResponse.status).toBe(200);
-    expect(repo.updateNode).toHaveBeenCalledWith('tree-1', 'node-1', { name: 'Updated' });
+    expect(nodeRepo.updateNode).toHaveBeenCalledWith('tree-1', 'node-1', { name: 'Updated' });
 
     const deleteResponse = await performRequest(app, {
-      url: '/api1/tree/tree-1/nodes/node-1',
+      url: '/api1/node/tree-1/item/node-1',
       method: 'DELETE'
     });
     expect(deleteResponse.status).toBe(204);
-    expect(repo.deleteSubtree).toHaveBeenCalledWith('tree-1', 'node-1');
+    expect(nodeRepo.deleteSubtree).toHaveBeenCalledWith('tree-1', 'node-1');
   });
 
   it('returns 404 when node not found', async () => {
     const { pool } = createMockPool([]);
-    const repo = createMockTreeRepo();
-    repo.getNode.mockResolvedValue(undefined);
+    const treeRepo = createMockTreeRepo();
+    const nodeRepo = createMockNodeRepo();
+    nodeRepo.getNode.mockResolvedValue(undefined);
     const app = createApp({
       pool,
-      treeRepository: repo,
+      treeRepository: treeRepo,
+      nodeRepository: nodeRepo,
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
-    const response = await performRequest(app, '/api1/tree/tree-1/nodes/node-404');
+    const response = await performRequest(app, '/api1/node/tree-1/item/node-404');
 
     expect(response.status).toBe(404);
   });
 
   it('moves subtree and handles advanced queries', async () => {
     const { pool } = createMockPool([]);
-    const repo = createMockTreeRepo();
+    const treeRepo = createMockTreeRepo();
+    const nodeRepo = createMockNodeRepo();
     const node = createNodeRow();
-    repo.getPathToRoot.mockResolvedValue([{ ...node, depth: 0 }]);
-    repo.getSubtree.mockResolvedValue([{ ...node, depth: 0 }]);
-    repo.moveSubtree.mockResolvedValue();
-    repo.listByType.mockResolvedValue([node]);
-    repo.incrementCounter.mockResolvedValue(node);
+    nodeRepo.getPathToRoot.mockResolvedValue([{ ...node, depth: 0 }]);
+    nodeRepo.getSubtree.mockResolvedValue([{ ...node, depth: 0 }]);
+    nodeRepo.moveSubtree.mockResolvedValue();
+    nodeRepo.listByType.mockResolvedValue([node]);
+    nodeRepo.incrementCounter.mockResolvedValue(node);
     const app = createApp({
       pool,
-      treeRepository: repo,
+      treeRepository: treeRepo,
+      nodeRepository: nodeRepo,
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
-    const pathResponse = await performRequest(app, '/api1/tree/tree-1/nodes/node-1/path');
+    const pathResponse = await performRequest(app, '/api1/node/tree-1/item/node-1/path');
     expect(pathResponse.status).toBe(200);
-    expect(repo.getPathToRoot).toHaveBeenCalledWith('tree-1', 'node-1');
+    expect(nodeRepo.getPathToRoot).toHaveBeenCalledWith('tree-1', 'node-1');
 
     const subtreeResponse = await performRequest(app, {
-      url: '/api1/tree/tree-1/nodes/node-1/subtree',
+      url: '/api1/node/tree-1/item/node-1/subtree',
       query: { maxDepth: '2' }
     });
     expect(subtreeResponse.status).toBe(200);
-    expect(repo.getSubtree).toHaveBeenCalledWith('tree-1', 'node-1', { maxDepth: 2 });
+    expect(nodeRepo.getSubtree).toHaveBeenCalledWith('tree-1', 'node-1', { maxDepth: 2 });
 
     const moveResponse = await performRequest(app, {
-      url: '/api1/tree/tree-1/nodes/node-1/move',
+      url: '/api1/node/tree-1/item/node-1/move',
       method: 'POST',
       body: { newParentId: 'node-2' }
     });
     expect(moveResponse.status).toBe(200);
-    expect(repo.moveSubtree).toHaveBeenCalledWith('tree-1', 'node-1', 'node-2');
+    expect(nodeRepo.moveSubtree).toHaveBeenCalledWith('tree-1', 'node-1', 'node-2');
 
-    const listByTypeResponse = await performRequest(app, '/api1/tree/tree-1/nodes/by-type/folder');
+    const listByTypeResponse = await performRequest(app, '/api1/node/tree-1/by-type/folder');
     expect(listByTypeResponse.status).toBe(200);
-    expect(repo.listByType).toHaveBeenCalledWith('tree-1', 'folder');
+    expect(nodeRepo.listByType).toHaveBeenCalledWith('tree-1', 'folder');
 
     const incrementResponse = await performRequest(app, {
-      url: '/api1/tree/tree-1/nodes/node-1/counter',
+      url: '/api1/node/tree-1/item/node-1/counter',
       method: 'POST',
       body: { counter: 'views', delta: 2 }
     });
     expect(incrementResponse.status).toBe(200);
-    expect(repo.incrementCounter).toHaveBeenCalledWith('tree-1', 'node-1', 'views', 2);
+    expect(nodeRepo.incrementCounter).toHaveBeenCalledWith('tree-1', 'node-1', 'views', 2);
   });
 
   it('validates node update input', async () => {
     const { pool } = createMockPool([]);
-    const repo = createMockTreeRepo();
+    const treeRepo = createMockTreeRepo();
+    const nodeRepo = createMockNodeRepo();
     const app = createApp({
       pool,
-      treeRepository: repo,
+      treeRepository: treeRepo,
+      nodeRepository: nodeRepo,
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
     const response = await performRequest(app, {
-      url: '/api1/tree/tree-1/nodes/node-1',
+      url: '/api1/node/tree-1/item/node-1',
       method: 'PATCH',
       body: {}
     });
 
     expect(response.status).toBe(400);
-    expect(repo.updateNode).not.toHaveBeenCalled();
+    expect(nodeRepo.updateNode).not.toHaveBeenCalled();
   });
 
   it('validates move subtree request', async () => {
     const { pool } = createMockPool([]);
-    const repo = createMockTreeRepo();
-    repo.moveSubtree.mockResolvedValue();
+    const treeRepo = createMockTreeRepo();
+    const nodeRepo = createMockNodeRepo();
+    nodeRepo.moveSubtree.mockResolvedValue();
     const app = createApp({
       pool,
-      treeRepository: repo,
+      treeRepository: treeRepo,
+      nodeRepository: nodeRepo,
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: createMockEdgeRepo()
     });
 
     const response = await performRequest(app, {
-      url: '/api1/tree/tree-1/nodes/node-1/move',
+      url: '/api1/node/tree-1/item/node-1/move',
       method: 'POST',
       body: {}
     });
 
     expect(response.status).toBe(200);
-    expect(repo.moveSubtree).toHaveBeenCalledWith('tree-1', 'node-1', null);
+    expect(nodeRepo.moveSubtree).toHaveBeenCalledWith('tree-1', 'node-1', null);
+  });
+});
+
+describe('Metrics endpoints', () => {
+  beforeEach(() => {
+    LatencyStats.reset();
+  });
+
+  it('returns latency snapshot', async () => {
+    LatencyStats.update('GET /example', 10);
+    LatencyStats.update('GET /example', 30);
+
+    const { pool } = createMockPool([]);
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, '/api1/metrics');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      latency: {
+        'GET /example': {
+          count: 2,
+          minMs: expect.any(Number),
+          maxMs: expect.any(Number),
+          avgMs: expect.any(Number)
+        }
+      }
+    });
+    expect(response.body.latency['GET /example'].minMs).toBe(10);
+    expect(response.body.latency['GET /example'].maxMs).toBe(30);
+    expect(response.body.latency['GET /example'].avgMs).toBeCloseTo(20, 2);
+  });
+
+  it('resets collected metrics', async () => {
+    LatencyStats.update('GET /example', 5);
+
+    const { pool } = createMockPool([]);
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const resetResponse = await performRequest(app, {
+      url: '/api1/metrics/reset',
+      method: 'POST'
+    });
+
+    expect(resetResponse.status).toBe(204);
+    const snapshot = LatencyStats.snapshot();
+    expect(snapshot['GET /example']).toBeUndefined();
+  });
+});
+
+describe('Node category endpoints', () => {
+  it('lists node categories', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    const category = createCategoryRow();
+    categoryRepo.listCategories.mockResolvedValue([category]);
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, '/api1/node-categories');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([serializeCategory(category)]);
+    expect(categoryRepo.listCategories).toHaveBeenCalledWith(undefined);
+  });
+
+  it('filters node categories by parent', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    const category = createCategoryRow({ parent_id: 'category-root' });
+    categoryRepo.listCategories.mockResolvedValue([category]);
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, { url: '/api1/node-categories', query: { parentId: 'category-root' } });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([serializeCategory(category)]);
+    expect(categoryRepo.listCategories).toHaveBeenCalledWith('category-root');
+  });
+
+  it('creates a node category', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    const category = createCategoryRow({ name: 'Folder' });
+    categoryRepo.createCategory.mockResolvedValue(category);
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, {
+      url: '/api1/node-categories',
+      method: 'POST',
+      body: { name: ' Folder ', parentId: null, props: { color: 'blue' } }
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual(serializeCategory(category));
+    expect(categoryRepo.createCategory).toHaveBeenCalledWith({
+      name: 'Folder',
+      parentId: null,
+      props: { color: 'blue' },
+    });
+  });
+
+  it('validates node category payloads on create', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, {
+      url: '/api1/node-categories',
+      method: 'POST',
+      body: {}
+    });
+
+    expect(response.status).toBe(400);
+    expect(categoryRepo.createCategory).not.toHaveBeenCalled();
+  });
+
+  it('retrieves a node category by id', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    const category = createCategoryRow();
+    categoryRepo.getCategoryById.mockResolvedValue(category);
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, '/api1/node-categories/category-1');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(serializeCategory(category));
+    expect(categoryRepo.getCategoryById).toHaveBeenCalledWith('category-1');
+    expect(categoryRepo.getCategoryByName).not.toHaveBeenCalled();
+  });
+
+  it('retrieves a node category by name when query parameter is present', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    const category = createCategoryRow({ name: 'Category by name' });
+    categoryRepo.getCategoryByName.mockResolvedValue(category);
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, '/api1/node-categories/category-1?name=Category%20by%20name');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(serializeCategory(category));
+    expect(categoryRepo.getCategoryByName).toHaveBeenCalledWith('Category by name');
+    expect(categoryRepo.getCategoryById).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when node category missing', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    categoryRepo.getCategoryById.mockResolvedValue(undefined);
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, '/api1/node-categories/missing');
+    expect(response.status).toBe(404);
+    expect(categoryRepo.getCategoryById).toHaveBeenCalledWith('missing');
+  });
+
+  it('updates a node category', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    const category = createCategoryRow({ name: 'Updated', parent_id: 'category-root' });
+    categoryRepo.updateCategory.mockResolvedValue(category);
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, {
+      url: '/api1/node-categories/category-1',
+      method: 'PATCH',
+      body: { name: 'Updated', parentId: 'category-root' }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(serializeCategory(category));
+    expect(categoryRepo.updateCategory).toHaveBeenCalledWith('category-1', {
+      name: 'Updated',
+      parentId: 'category-root',
+    });
+  });
+
+  it('rejects invalid node category updates', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, {
+      url: '/api1/node-categories/category-1',
+      method: 'PATCH',
+      body: {}
+    });
+
+    expect(response.status).toBe(400);
+    expect(categoryRepo.updateCategory).not.toHaveBeenCalled();
+  });
+
+  it('deletes a node category', async () => {
+    const { pool } = createMockPool([]);
+    const categoryRepo = createMockCategoryRepo();
+    const app = createApp({
+      pool,
+      treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: categoryRepo,
+      layerRepository: createMockLayerRepo(),
+      edgeRepository: createMockEdgeRepo()
+    });
+
+    const response = await performRequest(app, {
+      url: '/api1/node-categories/category-1',
+      method: 'DELETE'
+    });
+
+    expect(response.status).toBe(204);
+    expect(categoryRepo.deleteCategory).toHaveBeenCalledWith('category-1');
   });
 });
 
@@ -649,6 +1031,8 @@ describe('Layer endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: layerRepo,
       edgeRepository: createMockEdgeRepo()
     });
@@ -671,6 +1055,8 @@ describe('Layer endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: layerRepo,
       edgeRepository: createMockEdgeRepo()
     });
@@ -713,6 +1099,8 @@ describe('Layer endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: layerRepo,
       edgeRepository: createMockEdgeRepo()
     });
@@ -728,6 +1116,8 @@ describe('Layer endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: layerRepo,
       edgeRepository: createMockEdgeRepo()
     });
@@ -759,6 +1149,8 @@ describe('Edge endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: edgeRepo
     });
@@ -778,6 +1170,8 @@ describe('Edge endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: edgeRepo
     });
@@ -798,6 +1192,8 @@ describe('Edge endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: edgeRepo
     });
@@ -830,6 +1226,8 @@ describe('Edge endpoints', () => {
     const app = createApp({
       pool,
       treeRepository: createMockTreeRepo(),
+      nodeRepository: createMockNodeRepo(),
+      categoryRepository: createMockCategoryRepo(),
       layerRepository: createMockLayerRepo(),
       edgeRepository: edgeRepo
     });
