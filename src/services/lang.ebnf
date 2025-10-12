@@ -1,0 +1,100 @@
+script      = statement , { statement } ;
+
+statement   = command
+            | meta-command ;
+
+command     = create-tree-command
+            | create-layer-command
+            | create-nodecat-command
+            | create-edgecat-command
+            | "create" , create-specifier , { command-parameter } , ";"
+            | non-create-command ;
+
+create-tree-command = "create" , "tree" , tree-parameters , ";" ;
+
+tree-parameters = name-parameter , schema-parameter , [ props-parameter ] ;
+
+create-layer-command = "create" , "layer" , layer-parameters , ";" ;
+
+layer-parameters = name-parameter , schema-parameter , [ props-parameter ] ;
+
+create-nodecat-command = "create" , "nodecat" , nodecat-parameters , ";" ;
+
+nodecat-parameters = name-parameter , schema-parameter , [parent-parameter] ;
+
+create-edgecat-command = "create" , "edgrcat" , edgecat-parameters , ";" ;
+
+edgecat-parameters = name-parameter , schema-parameter , [parent-parameter] ;
+
+name-parameter = "name" , ":" , bare-string ;
+
+schema-parameter = "schema" , ":" , json-string ;
+
+props-parameter = "props" , ":" , json-string ;
+
+parent-parameter = "parent",":",bare-string;
+
+non-create-command = command-identifier , command-specifier , { command-parameter } , ";" ;
+
+command-identifier = "update"
+                   | "delete"
+                   | "get"
+                   | "list"
+                   | "move" ;
+
+command-specifier = identifier ;
+
+create-specifier = "node"
+                 | "edge"
+                 | "edgetype"
+                 | "nodetype";
+
+command-parameter = bare-string , ":" , parameter-value ;
+
+parameter-value = bare-string
+                | json-string
+                | number-literal ;
+
+meta-command = repeat-meta-command
+             | conditional-meta-command ;
+
+repeat-meta-command = "repeat" , repeat-parameter-list , command , { command } , "end" , ";" ;
+
+repeat-parameter-list = "[" , number-literal , { "," , repeat-argument } , "]" ;
+
+repeat-argument = number-literal
+                | bare-string
+                | json-string ;
+
+conditional-meta-command = conditional-meta-identifier , { meta-parameter } , command , { command } , "end" , ";" ;
+
+conditional-meta-identifier = "for"
+                            | "if" ;
+
+meta-parameter = bare-string
+               | json-string
+               | number-literal
+               | identifier ;
+
+identifier  = letter , { letter | digit | "_" } ;
+
+bare-string = letter-or-digit , { letter-or-digit } ;
+
+json-string = "'" , { json-character } , "'" ;
+
+number-literal = ["-"] , digit , { digit } ;
+
+letter      = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J"
+            | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T"
+            | "U" | "V" | "W" | "X" | "Y" | "Z"
+            | "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j"
+            | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t"
+            | "u" | "v" | "w" | "x" | "y" | "z" ;
+
+digit       = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+character   = ? any ASCII character ? ;
+
+letter-or-digit = letter | digit ;
+
+json-character = character - "'" ;

@@ -2,1439 +2,1010 @@ import type { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
 
 export const swaggerSpec = {
-    openapi: "3.0.0",
-    info: {
-        title: "Refactor API",
-        version: "1.0.0",
-        description: "Simple REST API with Swagger documentation",
+  openapi: "3.0.0",
+  info: {
+    title: "Refactor API",
+    version: "1.0.0",
+    description: "HTTP interface generated from the repository + router layout.",
+  },
+  servers: [
+    {
+      url: "http://localhost:3000",
+      description: "Local development server",
     },
-    servers: [
-        {
-            url: "http://localhost:3000",
-            description: "Local development server",
+  ],
+  paths: {
+    "/api/app-info": {
+      put: {
+        summary: "Create app info entry",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AppInfoCreate" },
+            },
+          },
         },
-    ],
-    paths: {
-        "/": {
-            get: {
-                summary: "Root endpoint",
-                description: "Fetches the refactor entry from the app_info table.",
-                responses: {
-                    "200": {
-                        description: "Successful response",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        name: { type: "string", example: "refactor" },
-                                        version: { type: "string", example: "1.0.0" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    "404": {
-                        description: "Entry not found",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        error: { type: "string", example: "refactor entry not found" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
+        responses: {
+          "201": { description: "Created", content: { "application/json": { schema: { $ref: "#/components/schemas/AppInfo" } } } },
+          "400": { description: "Invalid payload" },
         },
-        "/api1": {
-            get: {
-                summary: "API 1 endpoint",
-                description: "Provides a JSON payload identifying api1.",
-                responses: {
-                    "200": {
-                        description: "Successful response",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        endpoint: { type: "string", example: "api1" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api1/env": {
-            get: {
-                summary: "Environment snapshot",
-                description:
-                    "Returns diagnostic information about the host running the application, including CPU, memory, process, and network details.",
-                responses: {
-                    "200": {
-                        description: "Current environment details",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/EnvSnapshot" },
-                            },
-                        },
-                    },
-                    "500": {
-                        description: "Unexpected error",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        error: { type: "string", example: "Internal Server Error" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api2": {
-            get: {
-                summary: "API 2 endpoint",
-                description: "Provides a JSON payload identifying api2.",
-                responses: {
-                    "200": {
-                        description: "Successful response",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        endpoint: { type: "string", example: "api2" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api2/console": {
-            post: {
-                summary: "Execute command via CommandInterpreter",
-                description: "Submits a DSL command string for execution by the CommandInterpreter and returns the collected logs.",
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                required: ["command"],
-                                properties: {
-                                    command: {
-                                        type: "string",
-                                        description: "DSL command script to execute.",
-                                        example: "create tree \"Example\" props '{\"label\":\"demo\"}';",
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "200": {
-                        description: "Command executed successfully",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        status: { type: "string", example: "ok" },
-                                        logs: {
-                                            type: "array",
-                                            items: { type: "string" },
-                                            description: "Log lines gathered during execution.",
-                                        },
-                                        result: {
-                                            type: "array",
-                                            description: "Return values produced by each executed command.",
-                                            items: {
-                                                type: "object",
-                                                additionalProperties: true,
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    "400": {
-                        description: "Invalid command or execution error",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        status: { type: "string", example: "error" },
-                                        message: { type: "string", example: "The command field must be a non-empty string." },
-                                        logs: {
-                                            type: "array",
-                                            items: { type: "string" },
-                                            description: "Log lines collected before the error occurred.",
-                                        },
-                                        result: {
-                                            type: "array",
-                                            description: "Return values produced prior to the error (empty when parsing fails).",
-                                            items: {
-                                                type: "object",
-                                                additionalProperties: true,
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api1/tree": {
-            get: {
-                summary: "List trees",
-                description: "Returns all trees.",
-                responses: {
-                    "200": {
-                        description: "List of trees",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "array",
-                                    items: { $ref: "#/components/schemas/Tree" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-            post: {
-                summary: "Create tree",
-                description: "Creates a new tree.",
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                required: ["name"],
-                                properties: {
-                                    name: { type: "string", example: "My tree" },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "201": {
-                        description: "Tree created",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/Tree" },
-                            },
-                        },
-                    },
-                    "400": {
-                        description: "Invalid input",
-                    },
-                },
-            },
-        },
-        "/api1/tree/{treeId}": {
-            put: {
-                summary: "Rename tree",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                required: ["name"],
-                                properties: {
-                                    name: { type: "string", example: "Renamed tree" },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "200": {
-                        description: "Tree renamed",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/Tree" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                },
-            },
-            delete: {
-                summary: "Delete tree",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "204": { description: "Tree deleted" },
-                },
-            },
-        },
-        "/api1/node/{treeId}": {
-            get: {
-                summary: "List child nodes",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "parentId",
-                        in: "query",
-                        required: false,
-                        schema: { type: "string", nullable: true },
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "List of nodes",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "array",
-                                    items: { $ref: "#/components/schemas/TreeNode" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-            post: {
-                summary: "Create node",
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                required: ["name"],
-                                properties: {
-                                    name: { type: "string" },
-                                    parentId: { type: "string", nullable: true },
-                                    categoryId: { type: "string", nullable: true },
-                                    position: { type: "integer" },
-                                    props: { type: "object" },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "201": {
-                        description: "Node created",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/TreeNode" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                },
-            },
-        },
-        "/api1/node/{treeId}/all": {
-            get: {
-                summary: "List all nodes in tree",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "All nodes ordered by parent and position",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "array",
-                                    items: { $ref: "#/components/schemas/TreeNode" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api1/node/{treeId}/item/{nodeId}": {
-            get: {
-                summary: "Get node",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "nodeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "Node details",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/TreeNode" },
-                            },
-                        },
-                    },
-                    "404": { description: "Not found" },
-                },
-            },
-            patch: {
-                summary: "Update node",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "nodeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                properties: {
-                                    name: { type: "string" },
-                                    position: { type: "integer" },
-                                    categoryId: { type: "string", nullable: true },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "200": {
-                        description: "Node updated",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/TreeNode" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                    "404": { description: "Not found" },
-                },
-            },
-            delete: {
-                summary: "Delete subtree",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "nodeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "204": { description: "Subtree deleted" },
-                },
-            },
-        },
-        "/api1/node/{treeId}/item/{nodeId}/path": {
-            get: {
-                summary: "Get node path to root",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "nodeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "Path to root",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "array",
-                                    items: { $ref: "#/components/schemas/TreeNodeWithDepth" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api1/node/{treeId}/item/{nodeId}/subtree": {
-            get: {
-                summary: "Get subtree",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "nodeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "maxDepth",
-                        in: "query",
-                        required: false,
-                        schema: { type: "integer", minimum: 0 },
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "Subtree nodes",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "array",
-                                    items: { $ref: "#/components/schemas/TreeNodeWithDepth" },
-                                },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid depth" },
-                },
-            },
-        },
-        "/api1/node/{treeId}/item/{nodeId}/move": {
-            post: {
-                summary: "Move subtree",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "nodeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                properties: {
-                                    newParentId: { type: "string", nullable: true },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "200": {
-                        description: "Subtree moved",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        status: { type: "string" },
-                                        action: { type: "string" },
-                                        nodeId: { type: "string" },
-                                        newParentId: { type: "string", nullable: true },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api1/node/{treeId}/by-type/{type}": {
-            get: {
-                summary: "Filter nodes by type",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "type",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string" },
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "Matching nodes",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "array",
-                                    items: { $ref: "#/components/schemas/TreeNode" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api1/node/{treeId}/item/{nodeId}/counter": {
-            post: {
-                summary: "Increment node counter",
-                parameters: [
-                    {
-                        name: "treeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "nodeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                required: ["counter"],
-                                properties: {
-                                    counter: { type: "string" },
-                                    delta: { type: "integer", default: 1 },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "200": {
-                        description: "Updated node",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/TreeNode" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                },
-            },
-        },
-        "/api1/metrics": {
-            get: {
-                summary: "Retrieve collected metrics",
-                description: "Returns aggregated latency statistics for handled API routes.",
-                responses: {
-                    "200": {
-                        description: "Metrics snapshot",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/MetricsSnapshot" },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api1/metrics/reset": {
-            post: {
-                summary: "Reset collected metrics",
-                description: "Clears the in-memory latency statistics.",
-                responses: {
-                    "204": { description: "Metrics reset successfully" },
-                },
-            },
-        },
-        "/api1/node-categories": {
-            get: {
-                summary: "List node types",
-                description: "Returns node types optionally filtered by parent.",
-                parameters: [
-                    {
-                        name: "parentId",
-                        in: "query",
-                        required: false,
-                        schema: { type: "string", nullable: true },
-                        description: 'Filter by parent type id. Use "null" to fetch root types.',
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "List of node types",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "array",
-                                    items: { $ref: "#/components/schemas/NodeCategory" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-            post: {
-                summary: "Create node type",
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: { $ref: "#/components/schemas/NodeCategoryCreateRequest" },
-                        },
-                    },
-                },
-                responses: {
-                    "201": {
-                        description: "Node type created",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/NodeCategory" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                },
-            },
-        },
-        "/api1/node-categories/{categoryId}": {
-            get: {
-                summary: "Get node type",
-                parameters: [
-                    {
-                        name: "categoryId",
-                        in: "path",
-                        required: false,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                    {
-                        name: "name",
-                        in: "query",
-                        required: false,
-                        schema: { type: "string" },
-                        description: "If provided, the category is looked up by name and the path id is ignored.",
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "Node category",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/NodeCategory" },
-                            },
-                        },
-                    },
-                    "404": { description: "Not found" },
-                },
-            },
-            patch: {
-                summary: "Update node type",
-                parameters: [
-                    {
-                        name: "categoryId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: { $ref: "#/components/schemas/NodeCategoryUpdateRequest" },
-                        },
-                    },
-                },
-                responses: {
-                    "200": {
-                        description: "Updated node type",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/NodeCategory" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                    "404": { description: "Not found" },
-                },
-            },
-            delete: {
-                summary: "Delete node type",
-                parameters: [
-                    {
-                        name: "categoryId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "204": { description: "Deleted" },
-                    "404": { description: "Not found" },
-                },
-            },
-        },
-        "/api1/layer": {
-            get: {
-                summary: "List layers",
-                responses: {
-                    "200": {
-                        description: "List of layers",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "array",
-                                    items: { $ref: "#/components/schemas/Layer" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-            post: {
-                summary: "Create layer",
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                required: ["name"],
-                                properties: {
-                                    name: { type: "string", example: "Layer A" },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "201": {
-                        description: "Layer created",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/Layer" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                },
-            },
-        },
-        "/api1/layer/{layerId}": {
-            get: {
-                summary: "Get layer",
-                parameters: [
-                    {
-                        name: "layerId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "Layer details",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/Layer" },
-                            },
-                        },
-                    },
-                    "404": { description: "Not found" },
-                },
-            },
-            put: {
-                summary: "Rename layer",
-                parameters: [
-                    {
-                        name: "layerId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                required: ["name"],
-                                properties: {
-                                    name: { type: "string", example: "Updated Layer" },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "200": {
-                        description: "Layer renamed",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/Layer" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                },
-            },
-            delete: {
-                summary: "Delete layer",
-                parameters: [
-                    {
-                        name: "layerId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "204": { description: "Layer deleted" },
-                },
-            },
-        },
-        "/api1/edge": {
-            get: {
-                summary: "List edges",
-                parameters: [
-                    {
-                        name: "layerId",
-                        in: "query",
-                        required: false,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "List of edges",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "array",
-                                    items: { $ref: "#/components/schemas/Edge" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/api1/edge/{layerId}": {
-            post: {
-                summary: "Create edge",
-                parameters: [
-                    {
-                        name: "layerId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                required: ["name", "from", "to"],
-                                properties: {
-                                    name: { type: "string", example: "Edge A" },
-                                    from: { type: "string", format: "uuid" },
-                                    to: { type: "string", format: "uuid" },
-                                    props: { type: "object" },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "201": {
-                        description: "Edge created",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/Edge" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                },
-            },
-        },
-        "/api1/edge/item/{edgeId}": {
-            get: {
-                summary: "Get edge",
-                parameters: [
-                    {
-                        name: "edgeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "200": {
-                        description: "Edge details",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/Edge" },
-                            },
-                        },
-                    },
-                    "404": { description: "Not found" },
-                },
-            },
-            patch: {
-                summary: "Update edge",
-                parameters: [
-                    {
-                        name: "edgeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: {
-                                type: "object",
-                                properties: {
-                                    name: { type: "string" },
-                                    layerId: { type: "string", format: "uuid" },
-                                    from: { type: "string", format: "uuid" },
-                                    to: { type: "string", format: "uuid" },
-                                    props: { type: "object" },
-                                },
-                            },
-                        },
-                    },
-                },
-                responses: {
-                    "200": {
-                        description: "Edge updated",
-                        content: {
-                            "application/json": {
-                                schema: { $ref: "#/components/schemas/Edge" },
-                            },
-                        },
-                    },
-                    "400": { description: "Invalid input" },
-                    "404": { description: "Not found" },
-                },
-            },
-            delete: {
-                summary: "Delete edge",
-                parameters: [
-                    {
-                        name: "edgeId",
-                        in: "path",
-                        required: true,
-                        schema: { type: "string", format: "uuid" },
-                    },
-                ],
-                responses: {
-                    "204": { description: "Edge deleted" },
-                },
-            },
-        },
-        "/dev/schema/reset": {
-            post: {
-                summary: "Reset development schema",
-                description: "Drops and recreates all database objects. Disabled outside development.",
-                responses: {
-                    "200": {
-                        description: "Schema reset successfully",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        status: { type: "string", example: "ok" },
-                                        action: { type: "string", example: "reset" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    "403": {
-                        description: "Endpoint disabled",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        error: { type: "string", example: "Dev schema endpoints disabled" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/dev/schema/create": {
-            post: {
-                summary: "Create development schema",
-                description: "Creates all database objects without dropping existing ones.",
-                responses: {
-                    "200": {
-                        description: "Schema created successfully",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        status: { type: "string", example: "ok" },
-                                        action: { type: "string", example: "create" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    "403": {
-                        description: "Endpoint disabled",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        error: { type: "string", example: "Dev schema endpoints disabled" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-        "/dev/schema/drop": {
-            post: {
-                summary: "Drop development schema",
-                description: "Drops all database objects created for development.",
-                responses: {
-                    "200": {
-                        description: "Schema dropped successfully",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        status: { type: "string", example: "ok" },
-                                        action: { type: "string", example: "drop" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    "403": {
-                        description: "Endpoint disabled",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        error: { type: "string", example: "Dev schema endpoints disabled" },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
+      },
     },
-    components: {
-        schemas: {
-            EnvSnapshot: {
-                type: "object",
-                properties: {
-                    timestamp: { type: "string", format: "date-time" },
-                    hostname: { type: "string" },
-                    arch: { type: "string" },
-                    platform: { type: "string" },
-                    release: { type: "string" },
-                    type: { type: "string" },
-                    systemUptimeSeconds: { type: "number", format: "float" },
-                    loadAverages: {
-                        type: "array",
-                        items: { type: "number", format: "float" },
-                        description: "1, 5, and 15 minute system load averages.",
-                    },
-                    totalMemoryBytes: { type: "number", format: "double" },
-                    freeMemoryBytes: { type: "number", format: "double" },
-                    usedMemoryBytes: { type: "number", format: "double" },
-                    memoryUsage: { $ref: "#/components/schemas/EnvMemoryUsage" },
-                    cpuCount: { type: "integer", minimum: 0 },
-                    cpus: {
-                        type: "array",
-                        items: { $ref: "#/components/schemas/EnvCpuSummary" },
-                    },
-                    processInfo: { $ref: "#/components/schemas/EnvProcessInfo" },
-                    userInfo: { $ref: "#/components/schemas/EnvUserInfo" },
-                    networkInterfaces: {
-                        type: "array",
-                        items: { $ref: "#/components/schemas/EnvNetworkInterface" },
-                    },
-                    envSummary: { $ref: "#/components/schemas/EnvEnvSummary" },
-                },
-            },
-            EnvMemoryUsage: {
-                type: "object",
-                properties: {
-                    rss: { type: "number", format: "double" },
-                    heapTotal: { type: "number", format: "double" },
-                    heapUsed: { type: "number", format: "double" },
-                    external: { type: "number", format: "double" },
-                    arrayBuffers: { type: "number", format: "double" },
-                },
-            },
-            EnvCpuSummary: {
-                type: "object",
-                properties: {
-                    model: { type: "string" },
-                    speedMhz: { type: "number", format: "float" },
-                    times: { $ref: "#/components/schemas/EnvCpuTimes" },
-                },
-            },
-            EnvCpuTimes: {
-                type: "object",
-                properties: {
-                    user: { type: "number", format: "double" },
-                    nice: { type: "number", format: "double" },
-                    sys: { type: "number", format: "double" },
-                    idle: { type: "number", format: "double" },
-                    irq: { type: "number", format: "double" },
-                },
-            },
-            EnvProcessInfo: {
-                type: "object",
-                properties: {
-                    pid: { type: "integer", minimum: 0 },
-                    nodeVersion: { type: "string" },
-                    uptimeSeconds: { type: "number", format: "float" },
-                    cwd: { type: "string" },
-                    argv: {
-                        type: "array",
-                        items: { type: "string" },
-                    },
-                    execPath: { type: "string" },
-                    versions: {
-                        type: "object",
-                        additionalProperties: { type: "string" },
-                    },
-                },
-            },
-            EnvUserInfo: {
-                type: "object",
-                properties: {
-                    username: { type: "string" },
-                    homedir: { type: "string" },
-                    shell: { type: "string" },
-                },
-            },
-            EnvNetworkInterface: {
-                type: "object",
-                properties: {
-                    name: { type: "string" },
-                    address: { type: "string" },
-                    family: { type: "string" },
-                    mac: { type: "string" },
-                    internal: { type: "boolean" },
-                    netmask: { type: "string" },
-                    cidr: { type: "string", nullable: true },
-                },
-            },
-            EnvEnvSummary: {
-                type: "object",
-                properties: {
-                    totalVariables: { type: "integer", minimum: 0 },
-                    keysSample: {
-                        type: "array",
-                        items: { type: "string" },
-                    },
-                },
-            },
-            Tree: {
-                type: "object",
-                properties: {
-                    id: { type: "string", format: "uuid" },
-                    name: { type: "string" },
-                    created_at: { type: "string", format: "date-time" },
-                    updated_at: { type: "string", format: "date-time" },
-                },
-            },
-            Layer: {
-                type: "object",
-                properties: {
-                    id: { type: "string", format: "uuid" },
-                    name: { type: "string" },
-                    created_at: { type: "string", format: "date-time" },
-                    updated_at: { type: "string", format: "date-time" },
-                },
-            },
-            Edge: {
-                type: "object",
-                properties: {
-                    id: { type: "string", format: "uuid" },
-                    layer_id: { type: "string", format: "uuid" },
-                    name: { type: "string" },
-                    from: { type: "string", format: "uuid" },
-                    to: { type: "string", format: "uuid" },
-                    props: { type: "object" },
-                    created_at: { type: "string", format: "date-time" },
-                    updated_at: { type: "string", format: "date-time" },
-                },
-            },
-            TreeNode: {
-                type: "object",
-                properties: {
-                    id: { type: "string", format: "uuid" },
-                    tree_id: { type: "string", format: "uuid" },
-                    parent_id: { type: "string", nullable: true },
-                    category_id: { type: "string", nullable: true },
-                    name: { type: "string" },
-                    position: { type: "integer" },
-                    euler_left: { type: "integer", minimum: 0 },
-                    euler_right: { type: "integer", minimum: 0 },
-                    euler_depth: { type: "integer", minimum: 0 },
-                    props: { type: "object" },
-                    created_at: { type: "string", format: "date-time" },
-                    updated_at: { type: "string", format: "date-time" },
-                },
-            },
-            TreeNodeWithDepth: {
-                allOf: [
-                    { $ref: "#/components/schemas/TreeNode" },
-                    {
-                        type: "object",
-                        properties: {
-                            depth: {
-                                type: "integer",
-                                minimum: 0,
-                                description: "Relative depth from the requested node.",
-                            },
-                        },
-                    },
-                ],
-            },
-            NodeCategory: {
-                type: "object",
-                properties: {
-                    id: { type: "string", format: "uuid" },
-                    parent_id: { type: "string", nullable: true },
-                    name: { type: "string" },
-                    props: { type: "object" },
-                    created_at: { type: "string", format: "date-time" },
-                    updated_at: { type: "string", format: "date-time" },
-                },
-            },
-            NodeCategoryCreateRequest: {
-                type: "object",
-                required: ["name"],
-                properties: {
-                    name: { type: "string", example: "Folder" },
-                    parentId: { type: "string", nullable: true, description: "Parent node category id." },
-                    props: { type: "object", description: "Optional metadata for the node category." },
-                },
-            },
-            NodeCategoryUpdateRequest: {
-                type: "object",
-                properties: {
-                    name: { type: "string", example: "Updated name" },
-                    parentId: { type: "string", nullable: true },
-                    props: { type: "object" },
-                },
-            },
-            MetricsSnapshot: {
-                type: "object",
-                properties: {
-                    latency: {
-                        type: "object",
-                        additionalProperties: { $ref: "#/components/schemas/LatencyStat" },
-                    },
-                },
-            },
-            LatencyStat: {
-                type: "object",
-                properties: {
-                    count: { type: "integer", minimum: 0 },
-                    minMs: { type: "number", format: "float" },
-                    maxMs: { type: "number", format: "float" },
-                    avgMs: { type: "number", format: "float" },
-                },
-            },
+    "/api/app-info/{name}": {
+      parameters: [{ $ref: "#/components/parameters/AppInfoNameParam" }],
+      get: {
+        summary: "Read app info entry",
+        responses: {
+          "200": { description: "Found", content: { "application/json": { schema: { $ref: "#/components/schemas/AppInfo" } } } },
+          "404": { description: "Not found" },
         },
+      },
+      patch: {
+        summary: "Update app info entry",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AppInfoUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/AppInfo" } } } },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete app info entry",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
     },
+    "/api/json-schemas": {
+      put: {
+        summary: "Create JSON schema",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/JsonSchemaCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/JsonSchema" } } },
+          },
+        },
+      },
+    },
+    "/api/json-schemas/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPathParam" }],
+      get: {
+        summary: "Read JSON schema",
+        responses: {
+          "200": {
+            description: "Found",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/JsonSchema" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      patch: {
+        summary: "Update JSON schema",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/JsonSchemaUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Updated",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/JsonSchema" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete JSON schema",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
+    },
+    "/api/trees": {
+      put: {
+        summary: "Create tree",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TreeCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Created", content: { "application/json": { schema: { $ref: "#/components/schemas/Tree" } } } },
+        },
+      },
+    },
+    "/api/trees/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPathParam" }],
+      get: {
+        summary: "Read tree",
+        responses: {
+          "200": { description: "Found", content: { "application/json": { schema: { $ref: "#/components/schemas/Tree" } } } },
+          "404": { description: "Not found" },
+        },
+      },
+      patch: {
+        summary: "Update tree",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TreeUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Tree" } } } },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete tree",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
+    },
+    "/api/layers": {
+      put: {
+        summary: "Create layer",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/LayerCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Created", content: { "application/json": { schema: { $ref: "#/components/schemas/Layer" } } } },
+        },
+      },
+    },
+    "/api/layers/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPathParam" }],
+      get: {
+        summary: "Read layer",
+        responses: {
+          "200": { description: "Found", content: { "application/json": { schema: { $ref: "#/components/schemas/Layer" } } } },
+          "404": { description: "Not found" },
+        },
+      },
+      patch: {
+        summary: "Update layer",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/LayerUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Layer" } } } },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete layer",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
+    },
+    "/api/edge-categories": {
+      put: {
+        summary: "Create edge category",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/EdgeCategoryCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/EdgeCategory" } } },
+          },
+        },
+      },
+    },
+    "/api/edge-categories/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPathParam" }],
+      get: {
+        summary: "Read edge category",
+        responses: {
+          "200": {
+            description: "Found",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/EdgeCategory" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      patch: {
+        summary: "Update edge category",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/EdgeCategoryUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Updated",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/EdgeCategory" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete edge category",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
+    },
+    "/api/edge-types": {
+      put: {
+        summary: "Create edge type",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/EdgeTypeCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/EdgeType" } } },
+          },
+        },
+      },
+    },
+    "/api/edge-types/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPathParam" }],
+      get: {
+        summary: "Read edge type",
+        responses: {
+          "200": {
+            description: "Found",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/EdgeType" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      patch: {
+        summary: "Update edge type",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/EdgeTypeUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Updated",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/EdgeType" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete edge type",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
+    },
+    "/api/node-categories": {
+      put: {
+        summary: "Create node category",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/NodeCategoryCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/NodeCategory" } } },
+          },
+        },
+      },
+    },
+    "/api/node-categories/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPathParam" }],
+      get: {
+        summary: "Read node category",
+        responses: {
+          "200": {
+            description: "Found",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/NodeCategory" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      patch: {
+        summary: "Update node category",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/NodeCategoryUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Updated",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/NodeCategory" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete node category",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
+    },
+    "/api/node-types": {
+      put: {
+        summary: "Create node type",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/NodeTypeCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/NodeType" } } },
+          },
+        },
+      },
+    },
+    "/api/node-types/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPathParam" }],
+      get: {
+        summary: "Read node type",
+        responses: {
+          "200": {
+            description: "Found",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/NodeType" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      patch: {
+        summary: "Update node type",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/NodeTypeUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Updated",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/NodeType" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete node type",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
+    },
+    "/api/nodes": {
+      put: {
+        summary: "Create node",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/NodeCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Node" } } },
+          },
+        },
+      },
+    },
+    "/api/nodes/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPathParam" }],
+      get: {
+        summary: "Read node",
+        responses: {
+          "200": {
+            description: "Found",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Node" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      patch: {
+        summary: "Update node",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/NodeUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Updated",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Node" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete node",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
+    },
+    "/api/edges": {
+      put: {
+        summary: "Create edge",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/EdgeCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Edge" } } },
+          },
+        },
+      },
+    },
+    "/api/edges/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPathParam" }],
+      get: {
+        summary: "Read edge",
+        responses: {
+          "200": {
+            description: "Found",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Edge" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      patch: {
+        summary: "Update edge",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/EdgeUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Updated",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Edge" } } },
+          },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete edge",
+        responses: {
+          "204": { description: "Deleted" },
+        },
+      },
+    },
+    "/api/metrics": {
+      get: {
+        summary: "Read collected metrics",
+        responses: {
+          "200": {
+            description: "Snapshot",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/MetricsSnapshot" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/metrics/reset": {
+      post: {
+        summary: "Reset collected metrics",
+        responses: {
+          "204": { description: "Reset" },
+        },
+      },
+    },
+    "/api/console": {
+      post: {
+        summary: "Execute console command",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["command"],
+                properties: {
+                  command: { type: "string", example: "create tree \"demo\"" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Executed",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string", example: "ok" },
+                    logs: { type: "array", items: { type: "string" } },
+                    result: { type: "array", items: { type: "object", additionalProperties: true } },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Invalid command" },
+        },
+      },
+    },
+    "/api/env": {
+      get: {
+        summary: "Environment snapshot",
+        responses: {
+          "200": {
+            description: "Snapshot",
+            content: {
+              "application/json": {
+                schema: { type: "object", description: "Platform, process and host details (shape depends on runtime)." },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  components: {
+    parameters: {
+      IdPathParam: {
+        name: "id",
+        in: "path",
+        required: true,
+        schema: { type: "string", format: "uuid" },
+      },
+      AppInfoNameParam: {
+        name: "name",
+        in: "path",
+        required: true,
+        schema: { type: "string" },
+      },
+    },
+    schemas: {
+      JsonValue: {
+        description: "Arbitrary JSON value",
+        anyOf: [
+          { type: "string" },
+          { type: "number" },
+          { type: "boolean" },
+          { type: "null" },
+          { type: "array", items: { $ref: "#/components/schemas/JsonValue" } },
+          { type: "object", additionalProperties: { $ref: "#/components/schemas/JsonValue" } },
+        ],
+      },
+      AppInfo: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          version: { type: "string" },
+        },
+        required: ["name", "version"],
+      },
+      AppInfoCreate: {
+        type: "object",
+        required: ["name", "version"],
+        properties: {
+          name: { type: "string", example: "refactor" },
+          version: { type: "string", example: "1.0.0" },
+        },
+      },
+      AppInfoUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          version: { type: "string" },
+        },
+        additionalProperties: false,
+      },
+      JsonSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      JsonSchemaCreate: {
+        type: "object",
+        required: ["name", "schema"],
+        properties: {
+          name: { type: "string" },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+        },
+      },
+      JsonSchemaUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+        },
+      },
+      Tree: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          props_schema: { type: "string", format: "uuid" },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      TreeCreate: {
+        type: "object",
+        required: ["name", "props", "props_schema"],
+        properties: {
+          name: { type: "string" },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          props_schema: { type: "string", format: "uuid" },
+        },
+      },
+      TreeUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          props_schema: { type: "string", format: "uuid" },
+        },
+      },
+      Layer: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          props_schema: { type: "string", format: "uuid" },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      LayerCreate: {
+        type: "object",
+        required: ["name", "props", "props_schema"],
+        properties: {
+          name: { type: "string" },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          props_schema: { type: "string", format: "uuid" },
+        },
+      },
+      LayerUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          props_schema: { type: "string", format: "uuid" },
+        },
+      },
+      EdgeCategory: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+          parentIds: {
+            type: "array",
+            items: { type: "string", format: "uuid" },
+          },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      EdgeCategoryCreate: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string" },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+          parentIds: {
+            type: "array",
+            items: { type: "string", format: "uuid" },
+          },
+        },
+      },
+      EdgeCategoryUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+          parentIds: {
+            type: "array",
+            items: { type: "string", format: "uuid" },
+          },
+        },
+      },
+      EdgeType: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          parent_id: { type: "string", format: "uuid", nullable: true },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      EdgeTypeCreate: {
+        type: "object",
+        required: ["name", "schema"],
+        properties: {
+          name: { type: "string" },
+          parent_id: { type: "string", format: "uuid", nullable: true },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+        },
+      },
+      EdgeTypeUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          parent_id: { type: "string", format: "uuid", nullable: true },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+        },
+      },
+      NodeCategory: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+          parentIds: {
+            type: "array",
+            items: { type: "string", format: "uuid" },
+          },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      NodeCategoryCreate: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string" },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+          parentIds: {
+            type: "array",
+            items: { type: "string", format: "uuid" },
+          },
+        },
+      },
+      NodeCategoryUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+          parentIds: {
+            type: "array",
+            items: { type: "string", format: "uuid" },
+          },
+        },
+      },
+      NodeType: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          parent_id: { type: "string", format: "uuid", nullable: true },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      NodeTypeCreate: {
+        type: "object",
+        required: ["name", "schema"],
+        properties: {
+          name: { type: "string" },
+          parent_id: { type: "string", format: "uuid", nullable: true },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+        },
+      },
+      NodeTypeUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          parent_id: { type: "string", format: "uuid", nullable: true },
+          schema: { $ref: "#/components/schemas/JsonValue" },
+        },
+      },
+      Node: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          parent_id: { type: "string", format: "uuid", nullable: true },
+          tree_id: { type: "string", format: "uuid", nullable: true },
+          category_id: { type: "string", format: "uuid", nullable: true },
+          type_id: { type: "string", format: "uuid", nullable: true },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          is_leaf: { type: "boolean" },
+          depth: { type: "integer" },
+          euler_in: { type: "integer" },
+          euler_out: { type: "integer" },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      NodeCreate: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string" },
+          parent_id: { type: "string", format: "uuid", nullable: true },
+          tree_id: { type: "string", format: "uuid", nullable: true },
+          category_id: { type: "string", format: "uuid", nullable: true },
+          type_id: { type: "string", format: "uuid", nullable: true },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          is_leaf: { type: "boolean" },
+          depth: { type: "integer" },
+          euler_in: { type: "integer" },
+          euler_out: { type: "integer" },
+        },
+      },
+      NodeUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          parent_id: { type: "string", format: "uuid", nullable: true },
+          tree_id: { type: "string", format: "uuid", nullable: true },
+          category_id: { type: "string", format: "uuid", nullable: true },
+          type_id: { type: "string", format: "uuid", nullable: true },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          is_leaf: { type: "boolean" },
+          depth: { type: "integer" },
+          euler_in: { type: "integer" },
+          euler_out: { type: "integer" },
+        },
+      },
+      Edge: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          layer_id: { type: "string", format: "uuid", nullable: true },
+          a_tree_id: { type: "string", format: "uuid", nullable: true },
+          a_node_id: { type: "string", format: "uuid", nullable: true },
+          b_tree_id: { type: "string", format: "uuid", nullable: true },
+          b_node_id: { type: "string", format: "uuid", nullable: true },
+          category_id: { type: "string", format: "uuid", nullable: true },
+          type_id: { type: "string", format: "uuid", nullable: true },
+          props: { $ref: "#/components/schemas/JsonValue" },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      EdgeCreate: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string" },
+          layer_id: { type: "string", format: "uuid", nullable: true },
+          a_tree_id: { type: "string", format: "uuid", nullable: true },
+          a_node_id: { type: "string", format: "uuid", nullable: true },
+          b_tree_id: { type: "string", format: "uuid", nullable: true },
+          b_node_id: { type: "string", format: "uuid", nullable: true },
+          category_id: { type: "string", format: "uuid", nullable: true },
+          type_id: { type: "string", format: "uuid", nullable: true },
+          props: { $ref: "#/components/schemas/JsonValue" },
+        },
+      },
+      EdgeUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          layer_id: { type: "string", format: "uuid", nullable: true },
+          a_tree_id: { type: "string", format: "uuid", nullable: true },
+          a_node_id: { type: "string", format: "uuid", nullable: true },
+          b_tree_id: { type: "string", format: "uuid", nullable: true },
+          b_node_id: { type: "string", format: "uuid", nullable: true },
+          category_id: { type: "string", format: "uuid", nullable: true },
+          type_id: { type: "string", format: "uuid", nullable: true },
+          props: { $ref: "#/components/schemas/JsonValue" },
+        },
+      },
+      MetricsSnapshot: {
+        type: "object",
+        properties: {
+          latency: {
+            type: "object",
+            additionalProperties: {
+              type: "object",
+              properties: {
+                count: { type: "integer" },
+                average: { type: "number" },
+                p95: { type: "number" },
+                p99: { type: "number" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
-export const mountSwagger = (app: Express): void => {
-    app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-    app.get("/swagger.json", (_req: Request, res: Response) => {
-        res.json(swaggerSpec);
-    });
+export const setupSwagger = (app: Express): void => {
+  app.use("/swagger", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.get("/swagger.json", (_req: Request, res: Response) => {
+    res.json(swaggerSpec);
+  });
 };

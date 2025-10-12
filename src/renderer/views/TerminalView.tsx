@@ -18,7 +18,8 @@ const TerminalView = () => {
     setOutput('');
 
     try {
-      const response = await fetch('http://localhost:3000/api2/console', {
+      //const response = await fetch('http://localhost:3000/api/console', {
+      const response = await fetch('/api/console', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

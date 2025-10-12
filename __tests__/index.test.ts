@@ -158,6 +158,8 @@ const createTreeRow = (overrides: Partial<Tree> = {}): Tree => {
   return {
     id: overrides.id ?? 'tree-1',
     name: overrides.name ?? 'Tree',
+    props: overrides.props ?? {},
+    props_schema: overrides.props_schema ?? 'schema-tree-1',
     created_at: overrides.created_at ?? now,
     updated_at: overrides.updated_at ?? now
   };
@@ -168,6 +170,8 @@ const createLayerRow = (overrides: Partial<Layer> = {}): Layer => {
   return {
     id: overrides.id ?? 'layer-1',
     name: overrides.name ?? 'Layer',
+    props: overrides.props ?? {},
+    props_schema: overrides.props_schema ?? 'schema-layer-1',
     created_at: overrides.created_at ?? now,
     updated_at: overrides.updated_at ?? now
   };
@@ -177,10 +181,14 @@ const createEdgeRow = (overrides: Partial<Edge> = {}): Edge => {
   const now = new Date();
   return {
     id: overrides.id ?? 'edge-1',
-    layer_id: overrides.layer_id ?? 'layer-1',
     name: overrides.name ?? 'Edge',
-    from: overrides.from ?? 'node-1',
-    to: overrides.to ?? 'node-2',
+    layer_id: overrides.layer_id ?? 'layer-1',
+    a_tree_id: overrides.a_tree_id ?? 'tree-1',
+    a_node_id: overrides.a_node_id ?? 'node-1',
+    b_tree_id: overrides.b_tree_id ?? 'tree-1',
+    b_node_id: overrides.b_node_id ?? 'node-2',
+    category_id: overrides.category_id ?? null,
+    type_id: overrides.type_id ?? null,
     props: overrides.props ?? {},
     created_at: overrides.created_at ?? now,
     updated_at: overrides.updated_at ?? now
@@ -193,12 +201,13 @@ const createNodeRow = (overrides: Partial<TreeNode> = {}): TreeNode => {
     id: overrides.id ?? 'node-1',
     tree_id: overrides.tree_id ?? 'tree-1',
     parent_id: overrides.parent_id ?? null,
-    category_id: overrides.category_id ?? null,
     name: overrides.name ?? 'Node',
-    position: overrides.position ?? 0,
-    euler_left: overrides.euler_left ?? 1,
-    euler_right: overrides.euler_right ?? 2,
-    euler_depth: overrides.euler_depth ?? 0,
+    category_id: overrides.category_id ?? null,
+    type_id: overrides.type_id ?? null,
+    is_leaf: overrides.is_leaf ?? true,
+    depth: overrides.depth ?? 0,
+    euler_in: overrides.euler_in ?? 1,
+    euler_out: overrides.euler_out ?? 2,
     props: overrides.props ?? {},
     created_at: overrides.created_at ?? now,
     updated_at: overrides.updated_at ?? now
@@ -212,6 +221,7 @@ const createCategoryRow = (overrides: Partial<NodeCategory> = {}): NodeCategory 
     parent_id: overrides.parent_id ?? null,
     name: overrides.name ?? 'Category',
     props: overrides.props ?? {},
+    props_schema: overrides.props_schema ?? 'schema-cat-1',
     created_at: overrides.created_at ?? now,
     updated_at: overrides.updated_at ?? now,
   };

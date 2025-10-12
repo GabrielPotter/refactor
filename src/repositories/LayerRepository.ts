@@ -1,35 +1,27 @@
 import { Kysely } from "kysely";
-import type { DB, Layer } from "../db/types";
+import type { DB, Layer, LayerPatch, NewLayer } from "../db/types";
 
 export class LayerRepository {
-  constructor(private readonly db: Kysely<DB>) {}
+  public constructor(private readonly db: Kysely<DB>) {}
 
-  async listLayers(): Promise<Layer[]> {
-    return this.db.selectFrom("layer").selectAll().orderBy("created_at", "asc").execute();
+  public async create(values: NewLayer): Promise<Layer> {
+    return this.db.insertInto("layer").values(values).returningAll().executeTakeFirstOrThrow();
   }
 
-  async getLayer(layerId: string): Promise<Layer | undefined> {
-    return this.db.selectFrom("layer").selectAll().where("id", "=", layerId).executeTakeFirst();
+  public async read(id: string): Promise<Layer | undefined> {
+    return this.db.selectFrom("layer").selectAll().where("id", "=", id).executeTakeFirst();
   }
 
-  async createLayer(name: string): Promise<Layer> {
-    return this.db
-      .insertInto("layer")
-      .values({ name })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-  }
-
-  async renameLayer(layerId: string, name: string): Promise<Layer> {
+  public async update(id: string, patch: LayerPatch): Promise<Layer | undefined> {
     return this.db
       .updateTable("layer")
-      .set({ name })
-      .where("id", "=", layerId)
+      .set(patch)
+      .where("id", "=", id)
       .returningAll()
-      .executeTakeFirstOrThrow();
+      .executeTakeFirst();
   }
 
-  async deleteLayer(layerId: string): Promise<void> {
-    await this.db.deleteFrom("layer").where("id", "=", layerId).execute();
+  public async delete(id: string): Promise<void> {
+    await this.db.deleteFrom("layer").where("id", "=", id).execute();
   }
 }

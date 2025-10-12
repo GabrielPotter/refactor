@@ -91,7 +91,7 @@ describe('CategoryRepository', () => {
       const result = await repo.listCategories();
       expect(result).toEqual([row]);
       expect(queries).toHaveLength(1);
-      expect(queries[0].sql.toLowerCase()).toContain('from "node_categories"');
+      expect(queries[0].sql.toLowerCase()).toContain('from "node_category"');
       expect(queries[0].sql.toLowerCase()).toContain('order by "name" asc');
     } finally {
       await db.destroy();
@@ -133,7 +133,7 @@ describe('CategoryRepository', () => {
       const result = await repo.createCategory({ name: 'Folder', parentId: null, props: row.props });
       expect(result).toEqual(row);
       expect(queries).toHaveLength(1);
-      expect(queries[0].sql.toLowerCase()).toContain('insert into "node_categories"');
+      expect(queries[0].sql.toLowerCase()).toContain('insert into "node_category"');
     } finally {
       await db.destroy();
     }
@@ -147,7 +147,7 @@ describe('CategoryRepository', () => {
       const result = await repo.updateCategory('category-1', { name: 'Updated', parentId: 'category-root' });
       expect(result).toEqual(row);
       expect(queries).toHaveLength(1);
-      expect(queries[0].sql.toLowerCase()).toContain('update "node_categories"');
+      expect(queries[0].sql.toLowerCase()).toContain('update "node_category"');
       expect(queries[0].sql.toLowerCase()).toContain('returning');
     } finally {
       await db.destroy();
@@ -170,7 +170,7 @@ describe('CategoryRepository', () => {
     try {
       await repo.deleteCategory('category-1');
       expect(queries).toHaveLength(1);
-      expect(queries[0].sql.toLowerCase()).toContain('delete from "node_categories"');
+      expect(queries[0].sql.toLowerCase()).toContain('delete from "node_category"');
     } finally {
       await db.destroy();
     }

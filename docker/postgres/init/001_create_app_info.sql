@@ -1,3 +1,5 @@
+-- signature table
+
 CREATE TABLE IF NOT EXISTS app_info (
   name TEXT PRIMARY KEY,
   version TEXT NOT NULL

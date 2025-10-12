@@ -132,7 +132,7 @@ export const ServiceOverview = ({ onLoadingChange, reloadToken = 0 }: ServiceOve
     setError(null);
     onLoadingChange?.(true);
     try {
-      const data = await readJson<EnvSnapshot>('/api1/env');
+      const data = await readJson<EnvSnapshot>('/api/env');
       setEnvData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -163,7 +163,7 @@ export const ServiceOverview = ({ onLoadingChange, reloadToken = 0 }: ServiceOve
             Service Overview
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            This view displays detailed environment information gathered by the backend via <code>/api1/env</code>. Use
+            This view displays detailed environment information gathered by the backend via <code>/api/env</code>. Use
             the refresh action to collect an updated snapshot from the server.
           </Typography>
         </Box>

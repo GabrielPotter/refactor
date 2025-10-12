@@ -80,6 +80,8 @@ const createTreeRow = (overrides: Partial<Tree> = {}): Tree => {
   return {
     id: overrides.id ?? 'tree-1',
     name: overrides.name ?? 'Tree',
+    props: overrides.props ?? {},
+    props_schema: overrides.props_schema ?? 'schema-1',
     created_at: overrides.created_at ?? now,
     updated_at: overrides.updated_at ?? now,
   };
@@ -102,14 +104,19 @@ describe('TreeRepository', () => {
   });
 
   it('creates a tree with the provided name', async () => {
-    const treeRow = createTreeRow({ name: 'New Tree' });
-    const { repo, db, queries } = createTestRepo([{ rows: [treeRow] }]);
+    const treeRow = createTreeRow({ name: 'New Tree', props_schema: 'schema-123' });
+    const { repo, db, queries } = createTestRepo([
+      { rows: [{ id: treeRow.props_schema, name: `${treeRow.name}-props-schema`, schema: {} }] },
+      { rows: [treeRow] },
+    ]);
 
     try {
       const result = await repo.createTree(treeRow.name);
       expect(result).toEqual(treeRow);
-      expect(queries).toHaveLength(1);
-      expect(queries[0].sql.toLowerCase()).toContain('insert into "tree"');
+      expect(queries).toHaveLength(2);
+      expect(queries[0].sql.toLowerCase()).toContain('select');
+      expect(queries[0].sql.toLowerCase()).toContain('from "json_schemas"');
+      expect(queries[1].sql.toLowerCase()).toContain('insert into "tree"');
     } finally {
       await db.destroy();
     }

@@ -1,31 +1,27 @@
 import { Kysely } from "kysely";
-import type { DB, Tree } from "../db/types";
+import type { DB, NewTree, Tree, TreePatch } from "../db/types";
 
 export class TreeRepository {
-  constructor(private readonly db: Kysely<DB>) {}
+  public constructor(private readonly db: Kysely<DB>) {}
 
-  async listTrees(): Promise<Tree[]> {
-    return this.db.selectFrom("tree").selectAll().orderBy("created_at", "asc").execute();
+  public async create(values: NewTree): Promise<Tree> {
+    return this.db.insertInto("tree").values(values).returningAll().executeTakeFirstOrThrow();
   }
 
-  async createTree(name: string): Promise<Tree> {
-    return this.db
-      .insertInto("tree")
-      .values({ name })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+  public async read(id: string): Promise<Tree | undefined> {
+    return this.db.selectFrom("tree").selectAll().where("id", "=", id).executeTakeFirst();
   }
 
-  async renameTree(treeId: string, name: string): Promise<Tree> {
+  public async update(id: string, patch: TreePatch): Promise<Tree | undefined> {
     return this.db
       .updateTable("tree")
-      .set({ name })
-      .where("id", "=", treeId)
+      .set(patch)
+      .where("id", "=", id)
       .returningAll()
-      .executeTakeFirstOrThrow();
+      .executeTakeFirst();
   }
 
-  async deleteTree(treeId: string): Promise<void> {
-    await this.db.deleteFrom("tree").where("id", "=", treeId).execute();
+  public async delete(id: string): Promise<void> {
+    await this.db.deleteFrom("tree").where("id", "=", id).execute();
   }
 }
