@@ -4,10 +4,9 @@ The database module defines the canonical schema (TypeScript types plus SQL boot
 
 ## Type Definitions (`src/db/types.ts`)
 
-- `AppInfoTable`, `JsonSchemasTable`, `TreeTable`, `LayerTable`, `EdgeCategoryTable`, `NodeCategoryTable`, `NodeCategoryGraphTable`, `EdgeTypeTable`, `NodeTypeTable`, `NodeTable`, and `EdgeTable` are inferred from Drizzle table definitions.
-- Legacy aliases (`Tree`, `Node`, etc.) wrap the core table interfaces with `InferSelectModel`, `InferInsertModel`, and `InferUpdateModel` helpers.
-- JSONB columns use `jsonb().$type<T>()` to keep strong typing (`TreeProps`, `LayerProps`, `EdgeCategorySchema`, `NodeCategorySchema`, `NodeProps`, `EdgeProps`).
-- Euler tour metadata uses `euler_in`, `euler_out`, and `depth` to support hierarchical queries.
+- Domain types (`AppInfo`, `JsonSchema`, `Tree`, `Layer`, `EdgeCategory`, `NodeCategory`, `NodeType`, `Node`, `Edge`, etc.) are exported directly as `InferSelectModel` outputs of the Drizzle tables.
+- Each domain type has matching `New*` and `*Patch` helpers derived from `InferInsertModel` to describe insert payloads and partial update shapes.
+- JSONB helpers (`JsonPrimitive`, `JsonValue`, `JsonMap`) are re-exported so consumers can strongly type nested payloads. Euler tour metadata uses `euler_in`, `euler_out`, and `depth` to support hierarchical queries.
 
 > Keep the diagram below in sync whenever the database schema changes.
 

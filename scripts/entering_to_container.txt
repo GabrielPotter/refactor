@@ -1,0 +1,16 @@
+docker exec -it refactor_postgres bash
+
+psql -U refactor -d refactor
+
+\?                  -- help for meta-commands
+\conninfo           -- show connection info
+\l+                 -- list databases (with sizes)
+\dn+                -- list schemas
+\dt                 -- list tables in current search_path schema(s)
+\dt+                -- list tables with size & description
+\dt+ public.*       -- list tables in a specific schema
+\di+                -- list indexes with sizes
+\d+ public.my_table -- describe table: columns, types, defaults, storage
+\df+                -- list functions (with definitions)
+\dx                 -- list installed extensions
+\x on               -- toggle expanded output (easier to read)

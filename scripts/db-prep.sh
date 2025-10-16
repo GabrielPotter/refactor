@@ -17,3 +17,7 @@ docker create \
   -v "$DATA_DIR:/var/lib/postgresql/data" \
   -v "$INIT_DIR:/docker-entrypoint-initdb.d:ro" \
   postgres:16
+
+# sudo chown -R 999:999 "$DATA_DIR"
+# sudo find "$DATA_DIR" -type d -exec chmod 700 {} \;
+# sudo find  "$DATA_DIR" -type f -exec chmod 600 {} \;
