@@ -2,10 +2,9 @@ import express, { NextFunction, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
 import { Pool } from "pg";
-import { Kysely, PostgresDialect } from "kysely";
 
+import { createDatabase, type Database } from "./db/client";
 import { DevSchema } from "./db/schema.dev";
-import type { DB } from "./db/types";
 import { AppInfoRepository } from "./repositories/AppInfoRepository";
 import { JsonSchemasRepository } from "./repositories/JsonSchemasRepository";
 import { TreeRepository } from "./repositories/TreeRepository";
@@ -49,8 +48,8 @@ type AppDependencies = {
   pool?: Pool;
   devSchema?: Pick<typeof DevSchema, "resetAll" | "createAll" | "dropAll">;
   devSchemaEnabled?: boolean;
-  createDevDb?: () => Promise<{ db: Kysely<DB>; destroy: () => Promise<void> }>;
-  db?: Kysely<DB>;
+  createDevDb?: () => Promise<{ db: Database; destroy: () => Promise<void> }>;
+  db?: Database;
   appInfoRepository?: AppInfoRepository;
   jsonSchemasRepository?: JsonSchemasRepository;
   treeRepository?: TreeRepository;
@@ -89,14 +88,8 @@ export const createApp = ({
     devSchemaEnabled ??
     (process.env.ENABLE_DEV_SCHEMA_API === "true" || process.env.NODE_ENV !== "production");
 
-  const mainDb =
-    db ??
-    new Kysely<DB>({
-      dialect: new PostgresDialect({
-        pool: dbPool,
-      }),
-    });
-  const shouldDestroyDb = !db;
+  const mainDb = db ?? createDatabase(dbPool);
+  const ownsDb = !db;
 
   const appInfoRepo = appInfoRepository ?? new AppInfoRepository(mainDb);
   const schemasRepo = jsonSchemasRepository ?? new JsonSchemasRepository(mainDb);
@@ -112,13 +105,11 @@ export const createApp = ({
   const buildDevDb =
     createDevDb ??
     (async () => {
-      const dialect = new PostgresDialect({
-        pool: createPool(),
-      });
-      const devDb = new Kysely<DB>({ dialect });
+      const pool = createPool();
+      const devDb = createDatabase(pool);
       return {
         db: devDb,
-        destroy: () => devDb.destroy(),
+        destroy: () => pool.end(),
       };
     });
 
@@ -153,16 +144,16 @@ export const createApp = ({
   const devSchemaActions: Array<{
     path: string;
     action: string;
-    handler: (database: Kysely<DB>) => Promise<void>;
+    handler: (database: Database) => Promise<void>;
   }> = [
     { path: "/dev/schema/reset", action: "reset", handler: (database) => devSchemaApi.resetAll(database) },
     { path: "/dev/schema/create", action: "create", handler: (database) => devSchemaApi.createAll(database) },
     { path: "/dev/schema/drop", action: "drop", handler: (database) => devSchemaApi.dropAll(database) },
   ];
 
-  const buildDevSchemaHandler = (handler: (database: Kysely<DB>) => Promise<void>, action: string) =>
+  const buildDevSchemaHandler = (handler: (database: Database) => Promise<void>, action: string) =>
     async (_req: Request, res: Response, next: NextFunction) => {
-      let devDb: { db: Kysely<DB>; destroy: () => Promise<void> } | undefined;
+      let devDb: { db: Database; destroy: () => Promise<void> } | undefined;
       try {
         devDb = await buildDevDb();
         await handler(devDb.db);
@@ -232,9 +223,9 @@ export const createApp = ({
     res.status(500).json({ error: "Internal Server Error" });
   });
 
-  if (shouldDestroyDb) {
+  if (ownsDb) {
     app.locals.destroyDb = async () => {
-      await mainDb.destroy();
+      // Connection pool cleanup happens in startServer's shutdown handler.
     };
   }
 
@@ -271,7 +262,7 @@ export const startServer = (port: number = Number(process.env.PORT) || 3000) => 
     if (typeof app.locals.destroyDb === "function") {
       app.locals.destroyDb().catch((error: unknown) => {
         // eslint-disable-next-line no-console
-        console.error("Error destroying Kysely instance", error);
+        console.error("Error during database cleanup", error);
       });
     }
   });

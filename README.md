@@ -3,7 +3,7 @@
 Refactor is a TypeScript codebase that combines an Express API, a PostgreSQL persistence layer, and a React/Vite administration console for managing hierarchical "tree" data, typed categories, cross-layer edges, and operational metrics. The project ships with a programmable DSL console, automatic latency tracking, and development helpers for quickly bootstrapping database schemas.
 
 ## System Highlights
-- Node.js + Express REST API backed by Kysely ORM and PostgreSQL.
+- Node.js + Express REST API backed by Drizzle ORM and PostgreSQL.
 - Domain model for trees, nodes, layers, edges, node and edge categories, node and edge types, plus shared JSON schemas with Euler-tour metadata (`euler_in` / `euler_out`) for fast hierarchy queries.
 - Command Interpreter DSL (built on Chevrotain) for scripted data manipulation via HTTP or the GUI console.
 - React Admin GUI (Material UI, CodeMirror) for service monitoring, environment inspection, and DSL execution.
@@ -12,7 +12,7 @@ Refactor is a TypeScript codebase that combines an Express API, a PostgreSQL per
 
 ## Module Documentation
 - [`docs/app.md`](docs/app.md): Express bootstrap, dependency injection, middleware, and server lifecycle.
-- [`docs/database.md`](docs/database.md): Schema definitions, Kysely types, and development helpers.
+- [`docs/database.md`](docs/database.md): Schema definitions, Drizzle types, and development helpers.
 - [`docs/repositories.md`](docs/repositories.md): Details for each repository class and associated tests.
 - [`docs/routes.md`](docs/routes.md): Endpoint catalogue with validation and behavior notes.
 - [`docs/metrics.md`](docs/metrics.md): Latency instrumentation and metrics API surface.
@@ -343,10 +343,10 @@ Use `$0` / `$$` placeholders inside `repeat` blocks to reference the iteration i
 ## Testing
 Unit tests (Jest + ts-jest) cover repository behavior, API wiring, and schema operations:
 
-- `__tests__/TreeRepository.test.ts`, `NodeRepository.test.ts`, etc. validate SQL workflows.
-- `__tests__/index.test.ts` exercises Express wiring with mocked dependencies.
+- `__tests__/treeRepository.test.ts` validates the Drizzle query builder interactions used by the tree repository.
+- `__tests__/db-utils.test.ts` exercises shared helpers such as patch sanitization.
 
-Execute `npm test` to run the suite; repository tests use in-memory SQLite via Kysely where feasible.
+Execute `npm test` to run the suite; repository tests rely on mocked Drizzle builders for deterministic assertions.
 
 ## Operational Considerations
 - The dev schema endpoints (`/dev/schema/*`) drop and recreate tables; keep `ENABLE_DEV_SCHEMA_API=false` in production.

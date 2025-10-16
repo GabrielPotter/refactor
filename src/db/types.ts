@@ -1,190 +1,80 @@
-import type {
-  ColumnType,
-  Generated,
-  Insertable,
-  JSONColumnType,
-  Selectable,
-  Updateable,
-} from "kysely";
+import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-export type JsonPrimitive = string | number | boolean | null;
-export type JsonObject = { [k: string]: JsonValue };
-export type JsonValue = JsonPrimitive | JsonValue[] | JsonObject;
+import type { JsonMap, JsonPrimitive, JsonValue } from "./json";
+import * as schema from "./schema";
 
-type CreatedAtColumn = ColumnType<Date, Date | string | undefined, never>;
-type UpdatedAtColumn = ColumnType<Date, Date | string | undefined, Date | string | undefined>;
+export { JsonMap, JsonPrimitive, JsonValue };
 
-type JsonMap = Record<string, JsonValue | undefined>;
+export type Schema = typeof schema;
+export type DB = Schema;
+export type Database = NodePgDatabase<Schema>;
 
-export interface AppInfoTable {
-  name: string;
-  version: string;
-}
+export type AppInfoTable = InferSelectModel<typeof schema.app_info>;
+export type AppInfo = AppInfoTable;
+export type NewAppInfo = InferInsertModel<typeof schema.app_info>;
+export type AppInfoPatch = Partial<InferInsertModel<typeof schema.app_info>>;
 
-export interface JsonSchemasTable {
-  id: Generated<string>;
-  name: string;
-  schema: JSONColumnType<JsonMap>;
-  created_at: CreatedAtColumn;
-  updated_at: UpdatedAtColumn;
-}
+export type JsonSchemasTable = InferSelectModel<typeof schema.json_schemas>;
+export type JsonSchema = JsonSchemasTable;
+export type NewJsonSchema = InferInsertModel<typeof schema.json_schemas>;
+export type JsonSchemaPatch = Partial<InferInsertModel<typeof schema.json_schemas>>;
 
-export interface TreeProps extends JsonMap {}
+export type TreeProps = JsonMap;
+export type TreeTable = InferSelectModel<typeof schema.tree>;
+export type Tree = TreeTable;
+export type NewTree = InferInsertModel<typeof schema.tree>;
+export type TreePatch = Partial<InferInsertModel<typeof schema.tree>>;
 
-export interface TreeTable {
-  id: Generated<string>; // uuid (gen_random_uuid)
-  name: string;
-  props: JSONColumnType<TreeProps>;
-  props_schema: string;
-  created_at: CreatedAtColumn;
-  updated_at: UpdatedAtColumn;
-}
+export type LayerProps = JsonMap;
+export type LayerTable = InferSelectModel<typeof schema.layer>;
+export type Layer = LayerTable;
+export type NewLayer = InferInsertModel<typeof schema.layer>;
+export type LayerPatch = Partial<InferInsertModel<typeof schema.layer>>;
 
-export interface LayerProps extends JsonMap {}
+export type EdgeCategorySchema = JsonMap;
+export type EdgeCategoryTable = InferSelectModel<typeof schema.edge_category>;
+export type EdgeCategory = EdgeCategoryTable;
+export type NewEdgeCategory = InferInsertModel<typeof schema.edge_category>;
+export type EdgeCategoryPatch = Partial<InferInsertModel<typeof schema.edge_category>>;
 
-export interface LayerTable {
-  id: Generated<string>;
-  name: string;
-  props: JSONColumnType<LayerProps>;
-  props_schema: string;
-  created_at: CreatedAtColumn;
-  updated_at: UpdatedAtColumn;
-}
+export type EdgeCategoryGraphTable = InferSelectModel<typeof schema.edge_category_graph>;
+export type EdgeCategoryGraphEdge = EdgeCategoryGraphTable;
+export type NewEdgeCategoryGraphEdge = InferInsertModel<typeof schema.edge_category_graph>;
 
-export interface EdgeCategorySchema extends JsonMap {}
+export type NodeCategorySchema = JsonMap;
+export type NodeCategoryTable = InferSelectModel<typeof schema.node_category>;
+export type NodeCategory = NodeCategoryTable;
+export type NewNodeCategory = InferInsertModel<typeof schema.node_category>;
+export type NodeCategoryPatch = Partial<InferInsertModel<typeof schema.node_category>>;
 
-export interface EdgeCategoryTable {
-  id: Generated<string>;
-  name: string;
-  schema: JSONColumnType<EdgeCategorySchema>;
-  created_at: CreatedAtColumn;
-  updated_at: UpdatedAtColumn;
-}
+export type NodeCategoryGraphTable = InferSelectModel<typeof schema.node_category_graph>;
+export type NodeCategoryGraphEdge = NodeCategoryGraphTable;
+export type NewNodeCategoryGraphEdge = InferInsertModel<typeof schema.node_category_graph>;
 
-export interface EdgeCategoryGraphTable {
-  parent_id: string;
-  child_id: string;
-}
+export type NodeTypeSchema = JsonMap;
+export type NodeTypeTable = InferSelectModel<typeof schema.node_types>;
+export type NodeType = NodeTypeTable;
+export type NewNodeType = InferInsertModel<typeof schema.node_types>;
+export type NodeTypePatch = Partial<InferInsertModel<typeof schema.node_types>>;
 
-export interface NodeCategorySchema extends JsonMap {}
+export type EdgeTypeSchema = JsonMap;
+export type EdgeTypeTable = InferSelectModel<typeof schema.edge_types>;
+export type EdgeType = EdgeTypeTable;
+export type NewEdgeType = InferInsertModel<typeof schema.edge_types>;
+export type EdgeTypePatch = Partial<InferInsertModel<typeof schema.edge_types>>;
 
-export interface NodeCategoryTable {
-  id: Generated<string>;
-  name: string;
-  schema: JSONColumnType<NodeCategorySchema>;
-  created_at: CreatedAtColumn;
-  updated_at: UpdatedAtColumn;
-}
+export type NodeProps = JsonMap;
+export type NodeTable = InferSelectModel<typeof schema.node>;
+export type Node = NodeTable;
+export type NewNode = InferInsertModel<typeof schema.node>;
+export type NodePatch = Partial<InferInsertModel<typeof schema.node>>;
 
-export interface NodeCategoryGraphTable {
-  parent_id: string;
-  child_id: string;
-}
-
-export interface NodeTypeSchema extends JsonMap {}
-
-export interface NodeTypeTable {
-  id: Generated<string>;
-  name: string;
-  parent_id: string | null;
-  schema: JSONColumnType<NodeTypeSchema>;
-  created_at: CreatedAtColumn;
-  updated_at: UpdatedAtColumn;
-}
-
-export interface EdgeTypeSchema extends JsonMap {}
-
-export interface EdgeTypeTable {
-  id: Generated<string>;
-  name: string;
-  parent_id: string | null;
-  schema: JSONColumnType<EdgeTypeSchema>;
-  created_at: CreatedAtColumn;
-  updated_at: UpdatedAtColumn;
-}
-
-export interface NodeProps extends JsonMap {}
-
-export interface NodeTable {
-  id: Generated<string>;
-  name: string;
-  parent_id: string | null;
-  tree_id: string | null;
-  category_id: string | null;
-  type_id: string | null;
-  props: JSONColumnType<NodeProps>;
-  is_leaf: boolean;
-  depth: number;
-  euler_in: number;
-  euler_out: number;
-  created_at: CreatedAtColumn;
-  updated_at: UpdatedAtColumn;
-}
-
-export interface EdgeProps extends JsonMap {}
-
-export interface EdgeTable {
-  id: Generated<string>;
-  name: string;
-  layer_id: string | null;
-  a_tree_id: string | null;
-  a_node_id: string | null;
-  b_tree_id: string | null;
-  b_node_id: string | null;
-  category_id: string | null;
-  type_id: string | null;
-  props: JSONColumnType<EdgeProps>;
-  created_at: CreatedAtColumn;
-  updated_at: UpdatedAtColumn;
-}
-
-export interface DB {
-  app_info: AppInfoTable;
-  json_schemas: JsonSchemasTable;
-  tree: TreeTable;
-  layer: LayerTable;
-  edge_category: EdgeCategoryTable;
-  edge_category_graph: EdgeCategoryGraphTable;
-  edge_types: EdgeTypeTable;
-  node_category: NodeCategoryTable;
-  node_category_graph: NodeCategoryGraphTable;
-  node_types: NodeTypeTable;
-  node: NodeTable;
-  edge: EdgeTable;
-}
-
-// Convenience aliases
-export type AppInfo      = Selectable<AppInfoTable>;
-export type NewAppInfo   = Insertable<AppInfoTable>;
-export type AppInfoPatch = Updateable<AppInfoTable>;
-
-export type JsonSchema      = Selectable<JsonSchemasTable>;
-export type NewJsonSchema   = Insertable<JsonSchemasTable>;
-export type JsonSchemaPatch = Updateable<JsonSchemasTable>;
-
-export type Tree       = Selectable<TreeTable>;
-export type NewTree    = Insertable<TreeTable>;
-export type TreePatch  = Updateable<TreeTable>;
-
-export type Layer      = Selectable<LayerTable>;
-export type NewLayer   = Insertable<LayerTable>;
-export type LayerPatch = Updateable<LayerTable>;
-
-export type NodeType      = Selectable<NodeTypeTable>;
-export type NewNodeType   = Insertable<NodeTypeTable>;
-export type NodeTypePatch = Updateable<NodeTypeTable>;
-
-export type EdgeType      = Selectable<EdgeTypeTable>;
-export type NewEdgeType   = Insertable<EdgeTypeTable>;
-export type EdgeTypePatch = Updateable<EdgeTypeTable>;
-
-export type Edge       = Selectable<EdgeTable>;
-export type NewEdge    = Insertable<EdgeTable>;
-export type EdgePatch  = Updateable<EdgeTable>;
-
-export type Node       = Selectable<NodeTable>;
-export type NewNode    = Insertable<NodeTable>;
-export type NodePatch  = Updateable<NodeTable>;
+export type EdgeProps = JsonMap;
+export type EdgeTable = InferSelectModel<typeof schema.edge>;
+export type Edge = EdgeTable;
+export type NewEdge = InferInsertModel<typeof schema.edge>;
+export type EdgePatch = Partial<InferInsertModel<typeof schema.edge>>;
 
 // Legacy aliases
 export type TreeNodeProps = NodeProps;
@@ -192,17 +82,3 @@ export type TreeNodeTable = NodeTable;
 export type TreeNode = Node;
 export type NewTreeNode = NewNode;
 export type TreeNodePatch = NodePatch;
-
-export type NodeCategory = Selectable<NodeCategoryTable>;
-export type NewNodeCategory = Insertable<NodeCategoryTable>;
-export type NodeCategoryPatch = Updateable<NodeCategoryTable>;
-
-export type EdgeCategory = Selectable<EdgeCategoryTable>;
-export type NewEdgeCategory = Insertable<EdgeCategoryTable>;
-export type EdgeCategoryPatch = Updateable<EdgeCategoryTable>;
-
-export type EdgeCategoryGraphEdge = Selectable<EdgeCategoryGraphTable>;
-export type NewEdgeCategoryGraphEdge = Insertable<EdgeCategoryGraphTable>;
-
-export type NodeCategoryGraphEdge = Selectable<NodeCategoryGraphTable>;
-export type NewNodeCategoryGraphEdge = Insertable<NodeCategoryGraphTable>;

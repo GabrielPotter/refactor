@@ -4,7 +4,7 @@ The Express application is instantiated in `src/index.ts`. The module coordinate
 
 ## Responsibilities
 - Build a PostgreSQL connection pool using environment variables (`PG*` or `POSTGRES_*`) with sane defaults.
-- Instantiate a `Kysely<DB>` client (unless provided) and register repositories.
+- Instantiate a Drizzle `NodePgDatabase` client (unless provided) and register repositories.
 - Configure latency measurement (`ParamGrouping`, `latencyCollector`) and Swagger UI.
 - Serve the React admin bundle from `dist/gui` under `/gui`.
 - Expose REST routers for trees, nodes, categories, layers, edges, metrics, and the DSL console.
@@ -17,7 +17,7 @@ The Express application is instantiated in `src/index.ts`. The module coordinate
 - `create*Repository`: allow injecting custom repository factories.
 - `devSchema`, `createDevDb`, `devSchemaEnabled`: override schema management behavior.
 
-When dependencies are omitted, `createApp()` creates defaults (e.g., `TreeRepository`, `NodeRepository`). The function also tracks whether it should destroy the Kysely instance on shutdown (`shouldDestroyDb`).
+When dependencies are omitted, `createApp()` creates defaults (e.g., `TreeRepository`, `NodeRepository`). The function records whether the application owns the Drizzle instance so shutdown can run any registered cleanup hooks.
 
 ## Environment Variables
 
@@ -46,9 +46,9 @@ When enabled, the following POST endpoints are mounted:
 - `/dev/schema/create`: create tables without dropping.
 - `/dev/schema/drop`: drop tables.
 
-Handlers acquire a temporary Kysely client (`createDevDb`) to isolate schema operations from the main pool. Errors are bubbled through `next()` while cleanup in `finally` ensures connections close.
+Handlers acquire a temporary Drizzle client (`createDevDb`) to isolate schema operations from the main pool. Errors are bubbled through `next()` while cleanup in `finally` ensures connections close.
 
 ## Startup and Teardown
-`startServer()` creates the pool, builds the app, and begins listening on `PORT` (default `3000`). A `close` listener tears down the pool and the lazily created `Kysely` instance. The module runs `startServer()` automatically when invoked as the entrypoint (`node dist/index.js`).  
+`startServer()` creates the pool, builds the app, and begins listening on `PORT` (default `3000`). A `close` listener tears down the pool and invokes any registered database cleanup hook. The module runs `startServer()` automatically when invoked as the entrypoint (`node dist/index.js`).  
 
 For tests, `createApp()` can be imported directly without starting the HTTP listener.

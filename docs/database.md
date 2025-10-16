@@ -4,9 +4,9 @@ The database module defines the canonical schema (TypeScript types plus SQL boot
 
 ## Type Definitions (`src/db/types.ts`)
 
-- `AppInfoTable`, `JsonSchemasTable`, `TreeTable`, `LayerTable`, `EdgeCategoryTable`, `NodeCategoryTable`, `NodeCategoryGraphTable`, `EdgeTypeTable`, `NodeTypeTable`, `NodeTable`, and `EdgeTable` model the PostgreSQL schema using Kysely column types.
-- Legacy aliases (`Tree`, `Node`, etc.) wrap the core table interfaces with `Selectable`, `Insertable`, and `Updateable` helpers.
-- JSONB columns use `JSONColumnType` to keep strong typing (`TreeProps`, `LayerProps`, `EdgeCategorySchema`, `NodeCategorySchema`, `NodeProps`, `EdgeProps`).
+- `AppInfoTable`, `JsonSchemasTable`, `TreeTable`, `LayerTable`, `EdgeCategoryTable`, `NodeCategoryTable`, `NodeCategoryGraphTable`, `EdgeTypeTable`, `NodeTypeTable`, `NodeTable`, and `EdgeTable` are inferred from Drizzle table definitions.
+- Legacy aliases (`Tree`, `Node`, etc.) wrap the core table interfaces with `InferSelectModel`, `InferInsertModel`, and `InferUpdateModel` helpers.
+- JSONB columns use `jsonb().$type<T>()` to keep strong typing (`TreeProps`, `LayerProps`, `EdgeCategorySchema`, `NodeCategorySchema`, `NodeProps`, `EdgeProps`).
 - Euler tour metadata uses `euler_in`, `euler_out`, and `depth` to support hierarchical queries.
 
 > Keep the diagram below in sync whenever the database schema changes.
@@ -126,7 +126,7 @@ erDiagram
 
 ## Development Schema Utilities (`src/db/schema.dev.ts`)
 
-`DevSchema` exposes `resetAll`, `createAll`, and `dropAll` helpers executed via SQL statements inside Kysely:
+`DevSchema` exposes `resetAll`, `createAll`, and `dropAll` helpers executed via raw SQL tagged with Drizzle's `sql` helper:
 
 - Installs `pgcrypto` to provide `gen_random_uuid`.
 - Creates tables with UUID primary keys, JSONB columns, and shared `updated_at` triggers.
@@ -159,6 +159,6 @@ A shared `set_updated_at` trigger updates the `updated_at` column on every `UPDA
 
 ## Data Access Patterns
 
-- Repositories rely on Kysely to build composable SQL queries, benefitting from type inference provided by these interfaces.
+- Repositories rely on Drizzle's query builder to compose SQL while benefitting from static typing.
 - JSON columns remain schemaless but strongly typed in TypeScript; repository methods apply application-level validation where needed.
 - Euler tour fields (`depth`, `euler_in`, `euler_out`) enforce subtree integrity; helper methods in `NodeRepository` centralise the update logic.

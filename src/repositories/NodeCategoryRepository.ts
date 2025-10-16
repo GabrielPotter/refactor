@@ -1,21 +1,25 @@
-import { Kysely, type Transaction } from "kysely";
-import type { DB, NewNodeCategory, NodeCategory, NodeCategoryPatch } from "../db/types";
+import { eq } from "drizzle-orm";
+
+import { node_category, node_category_graph } from "../db/schema";
+import type { Database, NewNodeCategory, NodeCategory, NodeCategoryPatch } from "../db/types";
+import { sanitizePatch } from "../db/utils";
 
 export type NodeCategoryCreateInput = NewNodeCategory & { parentIds?: string[] };
 export type NodeCategoryUpdateInput = NodeCategoryPatch & { parentIds?: string[] };
 export type NodeCategoryWithParents = NodeCategory & { parentIds: string[] };
+type Executor = Pick<Database, "select" | "insert" | "update" | "delete">;
 
 export class NodeCategoryRepository {
-  public constructor(private readonly db: Kysely<DB>) {}
+  public constructor(private readonly db: Database) {}
 
   public async create(values: NodeCategoryCreateInput): Promise<NodeCategoryWithParents> {
-    return this.db.transaction().execute(async (trx) => {
+    return this.db.transaction(async (trx) => {
       const { parentIds, ...categoryValues } = values;
-      const inserted = await trx
-        .insertInto("node_category")
-        .values(categoryValues)
-        .returningAll()
-        .executeTakeFirstOrThrow();
+      const [inserted] = await trx.insert(node_category).values(categoryValues).returning().execute();
+
+      if (!inserted) {
+        throw new Error("Failed to insert node_category row");
+      }
 
       await this.replaceParentEdges(trx, inserted.id, parentIds);
       return this.hydrateWithParents(trx, inserted.id, inserted);
@@ -23,11 +27,12 @@ export class NodeCategoryRepository {
   }
 
   public async read(id: string): Promise<NodeCategoryWithParents | undefined> {
-    const category = await this.db
-      .selectFrom("node_category")
-      .selectAll()
-      .where("id", "=", id)
-      .executeTakeFirst();
+    const [category] = await this.db
+      .select()
+      .from(node_category)
+      .where(eq(node_category.id, id))
+      .limit(1)
+      .execute();
 
     if (!category) {
       return undefined;
@@ -37,35 +42,34 @@ export class NodeCategoryRepository {
   }
 
   public async update(id: string, patch: NodeCategoryUpdateInput): Promise<NodeCategoryWithParents | undefined> {
-    return this.db.transaction().execute(async (trx) => {
+    return this.db.transaction(async (trx) => {
       const { parentIds, ...categoryPatch } = patch;
-      const hasCategoryUpdates = Object.values(categoryPatch as Record<string, unknown>).some(
-        (value) => value !== undefined,
-      );
+      const updateValues = sanitizePatch(categoryPatch);
+      const hasCategoryUpdates = Object.keys(updateValues).length > 0;
 
-      let current = undefined as NodeCategory | undefined;
+      let current: NodeCategory | undefined;
 
       if (hasCategoryUpdates) {
-        current = await trx
-          .updateTable("node_category")
-          .set(categoryPatch)
-          .where("id", "=", id)
-          .returningAll()
-          .executeTakeFirst();
+        const [updated] = await trx
+          .update(node_category)
+          .set(updateValues)
+          .where(eq(node_category.id, id))
+          .returning()
+          .execute();
 
-        if (!current) {
-          return undefined;
-        }
+        current = updated ?? undefined;
       } else {
-        current = await trx
-          .selectFrom("node_category")
-          .selectAll()
-          .where("id", "=", id)
-          .executeTakeFirst();
+        const [existing] = await trx
+          .select()
+          .from(node_category)
+          .where(eq(node_category.id, id))
+          .limit(1)
+          .execute();
+        current = existing ?? undefined;
+      }
 
-        if (!current) {
-          return undefined;
-        }
+      if (!current) {
+        return undefined;
       }
 
       await this.replaceParentEdges(trx, id, parentIds);
@@ -74,11 +78,11 @@ export class NodeCategoryRepository {
   }
 
   public async delete(id: string): Promise<void> {
-    await this.db.deleteFrom("node_category").where("id", "=", id).execute();
+    await this.db.delete(node_category).where(eq(node_category.id, id)).execute();
   }
 
   private async replaceParentEdges(
-    executor: Kysely<DB> | Transaction<DB>,
+    executor: Executor,
     childId: string,
     parentIds: readonly string[] | undefined,
   ): Promise<void> {
@@ -86,25 +90,25 @@ export class NodeCategoryRepository {
       return;
     }
 
-    await executor.deleteFrom("node_category_graph").where("child_id", "=", childId).execute();
+    await executor.delete(node_category_graph).where(eq(node_category_graph.child_id, childId)).execute();
 
     if (parentIds.length === 0) {
       return;
     }
 
     const rows = parentIds.map((parentId) => ({ parent_id: parentId, child_id: childId }));
-    await executor.insertInto("node_category_graph").values(rows).execute();
+    await executor.insert(node_category_graph).values(rows).execute();
   }
 
   private async hydrateWithParents(
-    executor: Kysely<DB> | Transaction<DB>,
+    executor: Executor,
     id: string,
     base: NodeCategory,
   ): Promise<NodeCategoryWithParents> {
     const parents = await executor
-      .selectFrom("node_category_graph")
-      .select("parent_id")
-      .where("child_id", "=", id)
+      .select({ parent_id: node_category_graph.parent_id })
+      .from(node_category_graph)
+      .where(eq(node_category_graph.child_id, id))
       .execute();
 
     return {
