@@ -27,6 +27,7 @@ import { createNodeRouter } from "./routes/NodeRouter";
 import { createNodeTypeRouter } from "./routes/NodeTypeRouter";
 import { createMetricsRouter } from "./routes/metricsRouter";
 import { createConsoleRouter } from "./routes/consoleRouter";
+import { createDevSchemaRouter } from "./routes/DevSchemaRouter";
 import { latencyCollector } from "./metrics/latency";
 import { ParamGrouping } from "./metrics/paramGrouper";
 import { CollectEnvData } from "./CollectEnvData";
@@ -106,6 +107,7 @@ export const createApp = () => {
   app.use("/api/node-types", createNodeTypeRouter(repositories.nodeTypes));
   app.use("/api/metrics", createMetricsRouter());
   app.use("/api/console", createConsoleRouter());
+  app.use("/api/db", createDevSchemaRouter(db));
 
   app.get("/api/env", (_req: Request, res: Response) => {
     const payload = CollectEnvData.getInstance().collect();

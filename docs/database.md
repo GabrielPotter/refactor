@@ -123,9 +123,9 @@ erDiagram
   NODE ||--o{ EDGE : endpoint_b
 ```
 
-## Development Schema Utilities (`src/db/schema.dev.ts`)
+## Development Schema Utilities (`DevSchema` in `src/db/schema.ts`)
 
-`DevSchema` exposes `resetAll`, `createAll`, and `dropAll` helpers executed via raw SQL tagged with Drizzle's `sql` helper:
+`DevSchema`, co-located with the table definitions in `src/db/schema.ts`, exposes `resetAll`, `createAll`, and `dropAll` helpers executed via raw SQL tagged with Drizzle's `sql` helper:
 
 - Installs `pgcrypto` to provide `gen_random_uuid`.
 - Creates tables with UUID primary keys, JSONB columns, and shared `updated_at` triggers.
@@ -135,6 +135,7 @@ erDiagram
   - Edge traversal helpers: `ux_edge_layer_pair`, `ix_edge_layer_a`, `ix_edge_layer_b`, `ix_edge_layer_ab`.
 - Enforces edge integrity through `edge_endpoints_order` and `edge_no_self` constraints.
 - Keeps a dedicated `dropAll` path so the creation helper can assume a clean database.
+- `POST /api/db/{reset|create|drop}` invokes the corresponding helper.
 
 ### Table Overview
 

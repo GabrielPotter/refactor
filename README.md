@@ -8,7 +8,7 @@ Refactor is a TypeScript codebase that combines an Express API, a PostgreSQL per
 - Command Interpreter DSL (built on Chevrotain) for scripted data manipulation via HTTP or the GUI console.
 - React Admin GUI (Material UI, CodeMirror) for service monitoring, environment inspection, and DSL execution.
 - Built-in latency metrics collection with configurable path grouping and a `/api1/metrics` endpoint.
-- Dev-only schema management endpoints guarded by `ENABLE_DEV_SCHEMA_API`.
+- Dev-only schema management endpoints available at `/api/db/*`.
 
 ## Module Documentation
 - [`docs/app.md`](docs/app.md): Express bootstrap, dependency injection, middleware, and server lifecycle.
@@ -251,7 +251,7 @@ classDiagram
 | `GET` | `/api1/metrics` | Snapshot latency metrics. |
 | `POST` | `/api1/metrics/reset` | Clear latency history. |
 | `POST` | `/api2/console` | Execute DSL script via `CommandInterpreter`. |
-| `POST` | `/dev/schema/reset|create|drop` | Dev-only schema lifecycle (guarded). |
+| `POST` | `/api/db/reset|create|drop` | Dev-only schema lifecycle (guarded). |
 | `GET` | `/gui/*` | Serve the built React admin console. |
 
 ## Environment & Configuration
@@ -264,7 +264,6 @@ classDiagram
 | `PGDATABASE` / `POSTGRES_DB` | `refactor` | Database name. |
 | `PGUSER` / `POSTGRES_USER` | `refactor` | Database user. |
 | `PGPASSWORD` / `POSTGRES_PASSWORD` | `refactor` | Database password. |
-| `ENABLE_DEV_SCHEMA_API` | `true` if `NODE_ENV !== production` | Enable dev schema endpoints. |
 | `NODE_ENV` | `development` | Controls dev/prod behavior (e.g., schema API). |
 
 ## NPM Scripts
@@ -283,7 +282,7 @@ classDiagram
 2. **Install dependencies:** `npm install`.
 3. **Build artifacts:** `npm run build`. This outputs the server bundle (`dist/`) and GUI assets (`dist/gui/` via Vite).
 4. **Start the server:** `node dist/index.js` or integrate with a process manager. The admin UI is available at `http://localhost:3000/gui`.
-5. **Initialize schema (dev):** POST to `/dev/schema/reset` to recreate tables and triggers. Avoid enabling this in production.
+5. **Initialize schema (dev):** POST to `/api/db/reset` to recreate tables and triggers. Avoid enabling this in production.
 6. **Run tests:** `npm test` (Jest + ts-jest).
 
 ## Build & Deploy Timeline
@@ -349,7 +348,7 @@ Unit tests (Jest + ts-jest) cover repository behavior, API wiring, and schema op
 Execute `npm test` to run the suite; repository tests rely on mocked Drizzle builders for deterministic assertions.
 
 ## Operational Considerations
-- The dev schema endpoints (`/dev/schema/*`) drop and recreate tables; keep `ENABLE_DEV_SCHEMA_API=false` in production.
+- The dev schema endpoints (`/api/db/*`) drop and recreate tables; use them cautiously in production environments.
 - Ensure the `pgcrypto` extension is enabled; `DevSchema.createAll` will attempt to install it.
 - Euler tour indices (`euler_left`, `euler_right`, `euler_depth`) must remain consistent—use repository helpers instead of raw SQL updates to maintain tree integrity.
 - Edges reference nodes across layers; enforce referential integrity by using repository methods that wrap operations inside transactions where critical (e.g., `moveSubtree`).
